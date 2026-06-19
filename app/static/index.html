@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PDFto — PDF を Markdown 等に変換</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <h1>PDFto</h1>
+    <p class="tagline">PDF をアップロードして、いくつかの質問に答えるだけ。Markdown / HTML / JSON / テキストに変換します。</p>
+    <p class="api-hint">他システムからは REST API（<a href="/docs" target="_blank" rel="noopener">/docs</a>）でも利用できます。</p>
+  </header>
+
+  <main>
+    <!-- Step 1: upload -->
+    <section id="step-upload" class="card">
+      <h2>1. PDF を選択</h2>
+      <label id="dropzone" class="dropzone">
+        <input type="file" id="file-input" accept="application/pdf,.pdf" hidden />
+        <span id="dropzone-text">クリックして PDF を選択（またはドラッグ＆ドロップ）</span>
+      </label>
+      <p id="upload-status" class="status"></p>
+    </section>
+
+    <!-- Step 2: questions -->
+    <section id="step-questions" class="card hidden">
+      <h2>2. 変換オプション</h2>
+      <div id="analysis-summary" class="summary"></div>
+      <form id="questions-form"></form>
+      <button id="convert-btn" type="button">変換する</button>
+      <p id="convert-status" class="status"></p>
+    </section>
+
+    <!-- Step 3: result -->
+    <section id="step-result" class="card hidden">
+      <h2>3. 結果</h2>
+      <div class="result-actions">
+        <a id="download-link" class="button" href="#" download>ダウンロード</a>
+        <button id="restart-btn" type="button" class="secondary">別のPDFを変換</button>
+      </div>
+      <pre id="preview" class="preview"></pre>
+      <p id="truncated-note" class="status hidden">※ プレビューは先頭部分のみ表示しています。全文はダウンロードしてください。</p>
+    </section>
+  </main>
+
+  <footer>
+    <span>Powered by <a href="https://github.com/docling-project/docling" target="_blank" rel="noopener">docling</a></span>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,126 @@
+"""Build the interactive questions for a document, and apply the answers.
+
+The set of questions adapts to what :mod:`app.analysis` found in the PDF: a
+scanned document is asked about OCR, a multi-page document about page ranges,
+and so on.  Each question's ``id`` matches a field on
+:class:`~app.models.ConversionOptions`, so applying answers is a direct mapping.
+"""
+
+from __future__ import annotations
+
+from .models import (
+    ConversionOptions,
+    DocumentAnalysis,
+    ImageMode,
+    OutputFormat,
+    Question,
+    QuestionChoice,
+    TableMode,
+)
+
+
+def build_questions(analysis: DocumentAnalysis) -> list[Question]:
+    """Return the questions appropriate for *analysis*."""
+
+    questions: list[Question] = [
+        Question(
+            id="output_format",
+            type="choice",
+            prompt="どの形式に変換しますか？",
+            help="他システムで扱うなら Markdown か JSON が便利です。",
+            default=OutputFormat.markdown.value,
+            choices=[
+                QuestionChoice(value=OutputFormat.markdown.value, label="Markdown (.md)"),
+                QuestionChoice(value=OutputFormat.html.value, label="HTML (.html)"),
+                QuestionChoice(value=OutputFormat.json.value, label="JSON (構造化)"),
+                QuestionChoice(value=OutputFormat.text.value, label="プレーンテキスト (.txt)"),
+            ],
+        )
+    ]
+
+    # OCR — only worth asking when text extraction looked poor.
+    if analysis.likely_scanned or not analysis.has_extractable_text:
+        ocr_default = True
+        ocr_help = "テキストが抽出できませんでした。スキャン文書の可能性が高いため、OCR を推奨します。"
+    else:
+        ocr_default = False
+        ocr_help = "通常は不要です。画像内の文字も読み取りたい場合のみ有効化してください。"
+    questions.append(
+        Question(
+            id="do_ocr",
+            type="boolean",
+            prompt="OCR（画像からの文字認識）を行いますか？",
+            help=ocr_help,
+            default=ocr_default,
+        )
+    )
+
+    # Table structure recovery.
+    questions.append(
+        Question(
+            id="do_table_structure",
+            type="boolean",
+            prompt="表の構造を復元しますか？",
+            help="表を含む文書では有効を推奨します（処理は少し重くなります）。",
+            default=True,
+        )
+    )
+
+    # Image handling — only relevant when images are present.
+    if analysis.has_images:
+        questions.append(
+            Question(
+                id="image_mode",
+                type="choice",
+                prompt="画像の扱いをどうしますか？",
+                help="埋め込みは単一ファイルで完結、参照は画像を別ファイルに書き出します。",
+                default=ImageMode.placeholder.value,
+                choices=[
+                    QuestionChoice(value=ImageMode.placeholder.value, label="プレースホルダのみ（軽量）"),
+                    QuestionChoice(value=ImageMode.embedded.value, label="本文に埋め込む (base64)"),
+                    QuestionChoice(value=ImageMode.referenced.value, label="別ファイルに書き出して参照"),
+                ],
+            )
+        )
+
+    # Page range — only worth asking for multi-page documents.
+    if analysis.page_count > 1:
+        questions.append(
+            Question(
+                id="page_range",
+                type="range",
+                prompt=f"変換するページ範囲は？（全 {analysis.page_count} ページ）",
+                help="空欄なら全ページを変換します。",
+                default=[1, analysis.page_count],
+            )
+        )
+
+    return questions
+
+
+def apply_answers(answers: dict) -> ConversionOptions:
+    """Translate a flat ``{question_id: value}`` mapping into options.
+
+    Unknown keys are ignored and missing keys fall back to the model defaults,
+    so a partial set of answers is always valid.
+    """
+
+    data: dict = {}
+    for key in ("output_format", "do_ocr", "do_table_structure", "image_mode", "table_mode"):
+        if key in answers and answers[key] is not None:
+            data[key] = answers[key]
+
+    page_range = answers.get("page_range")
+    if isinstance(page_range, (list, tuple)) and len(page_range) == 2:
+        start, end = page_range
+        if start is not None:
+            data["page_start"] = int(start)
+        if end is not None:
+            data["page_end"] = int(end)
+    else:
+        if answers.get("page_start") is not None:
+            data["page_start"] = int(answers["page_start"])
+        if answers.get("page_end") is not None:
+            data["page_end"] = int(answers["page_end"])
+
+    return ConversionOptions(**data)
