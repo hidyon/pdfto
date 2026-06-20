@@ -43,6 +43,23 @@ def test_convert_forwards_artifacts_path(tmp_path, monkeypatch):
     assert result.content == "md-out"
 
 
+def test_convert_forwards_ocr_languages(tmp_path, monkeypatch):
+    captured: dict = {}
+
+    def fake_get(**kwargs):
+        captured.update(kwargs)
+        return _FakeConverter()
+
+    monkeypatch.setattr(conv, "_get_converter", fake_get)
+    monkeypatch.setattr(settings, "docling_artifacts", None)
+
+    pdf = tmp_path / "x.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    conv.convert(pdf, ConversionOptions(do_ocr=True, ocr_languages=["ja", "en"]))
+
+    assert captured["ocr_languages"] == ("ja", "en")
+
+
 def test_convert_artifacts_path_none_by_default(tmp_path, monkeypatch):
     captured: dict = {}
 

@@ -125,6 +125,21 @@ curl "http://localhost:8000/api/v1/batches/<BATCH_ID>"
 各成果物は通常どおり `GET /api/v1/documents/{document_id}/download?format=...` で
 取得します。1 バッチのファイル数は `PDFTO_MAX_BATCH_FILES`（既定 20）まで。
 
+### OCR と言語
+
+スキャン文書は `do_ocr` を有効にし、`ocr_languages` で言語を指定します
+（[EasyOCR の言語コード](https://www.jaided.ai/easyocr/)、例: `ja` / `en` / `ch_sim` /
+`ko` / `fr` / `de` / `es`）。対話フローでは内容に応じて言語を複数選択できます。
+
+```bash
+# ワンショットで日本語+英語 OCR
+curl -OJ "http://localhost:8000/api/v1/convert?do_ocr=true&ocr_languages=ja&ocr_languages=en" \
+     -F file=@scanned.pdf
+```
+
+> OCR モデル（EasyOCR）は Docker イメージに焼き込まれておらず、初回 OCR 時に
+> ダウンロードされます（オフライン環境では別途用意が必要）。
+
 ### 質問とオプションの対応
 
 各質問の `id` は変換オプションのフィールド名と一致しており、回答はそのまま送れます。
@@ -133,6 +148,7 @@ curl "http://localhost:8000/api/v1/batches/<BATCH_ID>"
 |----|------|----|
 | `output_format` | 出力形式 | `markdown` / `html` / `json` / `text` |
 | `do_ocr` | OCR を行うか（スキャン文書向け） | `true` / `false` |
+| `ocr_languages` | OCR の対象言語（複数可・EasyOCR コード） | `["ja","en"]` |
 | `do_table_structure` | 表構造を復元するか | `true` / `false` |
 | `image_mode` | 画像の扱い | `placeholder` / `embedded` / `referenced` |
 | `page_range` | 変換するページ範囲 | `[1, 5]` |

@@ -45,6 +45,11 @@ class ConversionOptions(BaseModel):
         default=False,
         description="Run OCR over the document. Needed for scanned/image PDFs.",
     )
+    ocr_languages: list[str] = Field(
+        default_factory=list,
+        description="OCR languages (EasyOCR codes, e.g. ['ja','en']). "
+        "Empty uses the engine default.",
+    )
     do_table_structure: bool = Field(
         default=True,
         description="Recover the structure of tables instead of flattening them.",

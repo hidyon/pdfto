@@ -203,6 +203,21 @@ def test_oneshot_convert(client, text_pdf):
     assert b"format=text" in r.content
 
 
+def test_convert_accepts_ocr_languages(client, text_pdf):
+    up = client.post("/api/v1/documents",
+                     files={"file": ("doc.pdf", text_pdf, "application/pdf")})
+    doc_id = up.json()["id"]
+    r = client.post(f"/api/v1/documents/{doc_id}/convert",
+                    json={"do_ocr": True, "ocr_languages": ["ja", "en"]})
+    assert r.status_code == 202, r.text
+
+
+def test_oneshot_accepts_ocr_languages(client, text_pdf):
+    r = client.post("/api/v1/convert?output_format=markdown&ocr_languages=ja&ocr_languages=en",
+                    files={"file": ("doc.pdf", text_pdf, "application/pdf")})
+    assert r.status_code == 200, r.text
+
+
 def test_unknown_document_404(client):
     r = client.post("/api/v1/documents/does-not-exist/convert", json={})
     assert r.status_code == 404

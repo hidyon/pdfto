@@ -61,3 +61,21 @@ def test_apply_answers_defaults_on_empty():
     opts = apply_answers({})
     assert opts.output_format is OutputFormat.markdown
     assert opts.do_table_structure is True
+    assert opts.ocr_languages == []
+
+
+def test_ocr_language_question_for_scanned():
+    qs = {q.id: q for q in build_questions(_analysis(likely_scanned=True))}
+    assert "ocr_languages" in qs
+    assert qs["ocr_languages"].type == "multichoice"
+    assert qs["ocr_languages"].default == ["ja", "en"]
+
+
+def test_no_ocr_language_question_for_clean_text():
+    qs = {q.id for q in build_questions(_analysis())}
+    assert "ocr_languages" not in qs
+
+
+def test_apply_answers_maps_ocr_languages():
+    opts = apply_answers({"do_ocr": True, "ocr_languages": ["ja", "en"]})
+    assert opts.ocr_languages == ["ja", "en"]

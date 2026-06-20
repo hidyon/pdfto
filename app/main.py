@@ -326,6 +326,7 @@ async def convert_oneshot(
     output_format: OutputFormat = Query(default=OutputFormat.markdown),
     do_ocr: bool = Query(default=False),
     do_table_structure: bool = Query(default=True),
+    ocr_languages: list[str] = Query(default=[]),
 ) -> FileResponse:
     """Upload and convert in a single request (no questions).
 
@@ -344,6 +345,7 @@ async def convert_oneshot(
         "output_format": output_format.value,
         "do_ocr": do_ocr,
         "do_table_structure": do_table_structure,
+        "ocr_languages": ocr_languages,
     })
     try:
         converted = await run_in_threadpool(
@@ -371,6 +373,7 @@ async def create_batch(
     output_format: OutputFormat = Query(default=OutputFormat.markdown),
     do_ocr: bool = Query(default=False),
     do_table_structure: bool = Query(default=True),
+    ocr_languages: list[str] = Query(default=[]),
     callback_url: Optional[str] = Query(default=None),
 ) -> BatchResponse:
     """Submit several PDFs at once; each becomes its own conversion job.
@@ -403,6 +406,7 @@ async def create_batch(
         "output_format": output_format.value,
         "do_ocr": do_ocr,
         "do_table_structure": do_table_structure,
+        "ocr_languages": ocr_languages,
     })
     batch_id = uuid.uuid4().hex
     items: list[BatchItem] = []

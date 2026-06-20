@@ -100,6 +100,25 @@ function renderQuestions(doc) {
       span.textContent = "有効にする";
       wrap.append(cb, span);
       field.appendChild(wrap);
+    } else if (q.type === "multichoice") {
+      const wrap = document.createElement("div");
+      wrap.className = "multichoice";
+      const selected = new Set(q.default || []);
+      for (const c of q.choices || []) {
+        const label = document.createElement("label");
+        label.className = "check";
+        const cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.dataset.qid = q.id;
+        cb.dataset.multi = "1";
+        cb.value = c.value;
+        cb.checked = selected.has(c.value);
+        const span = document.createElement("span");
+        span.textContent = c.label;
+        label.append(cb, span);
+        wrap.appendChild(label);
+      }
+      field.appendChild(wrap);
     } else if (q.type === "range") {
       const wrap = document.createElement("div");
       wrap.className = "range-row";
@@ -125,7 +144,10 @@ function collectAnswers() {
   const answers = {};
   document.querySelectorAll("#questions-form [data-qid]").forEach((el) => {
     const id = el.dataset.qid;
-    if (el.type === "checkbox") answers[id] = el.checked;
+    if (el.dataset.multi) {
+      if (!Array.isArray(answers[id])) answers[id] = [];
+      if (el.checked) answers[id].push(el.value);
+    } else if (el.type === "checkbox") answers[id] = el.checked;
     else if (el.type === "number") answers[id] = el.value ? Number(el.value) : null;
     else answers[id] = el.value;
   });

@@ -54,6 +54,26 @@ def build_questions(analysis: DocumentAnalysis) -> list[Question]:
             default=ocr_default,
         )
     )
+    # OCR language selection — only relevant when OCR is on the table.
+    if analysis.likely_scanned or not analysis.has_extractable_text:
+        questions.append(
+            Question(
+                id="ocr_languages",
+                type="multichoice",
+                prompt="OCR の言語は？（複数選択可）",
+                help="OCR を行う場合の対象言語。文書の言語に合わせて選んでください。",
+                default=["ja", "en"],
+                choices=[
+                    QuestionChoice(value="en", label="English"),
+                    QuestionChoice(value="ja", label="日本語"),
+                    QuestionChoice(value="ch_sim", label="简体中文"),
+                    QuestionChoice(value="ko", label="한국어"),
+                    QuestionChoice(value="fr", label="Français"),
+                    QuestionChoice(value="de", label="Deutsch"),
+                    QuestionChoice(value="es", label="Español"),
+                ],
+            )
+        )
 
     # Table structure recovery.
     questions.append(
@@ -109,6 +129,10 @@ def apply_answers(answers: dict) -> ConversionOptions:
     for key in ("output_format", "do_ocr", "do_table_structure", "image_mode", "table_mode"):
         if key in answers and answers[key] is not None:
             data[key] = answers[key]
+
+    langs = answers.get("ocr_languages")
+    if isinstance(langs, (list, tuple)):
+        data["ocr_languages"] = [str(x) for x in langs]
 
     page_range = answers.get("page_range")
     if isinstance(page_range, (list, tuple)) and len(page_range) == 2:

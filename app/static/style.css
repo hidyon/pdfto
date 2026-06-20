@@ -76,6 +76,9 @@ a { color: var(--accent); }
 .field .toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
 .range-row { display: flex; align-items: center; gap: 10px; }
 .range-row input { max-width: 100px; }
+.multichoice { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.multichoice .check { display: flex; align-items: center; gap: 6px; font-weight: 400; }
+.multichoice .check input { width: 16px; height: 16px; accent-color: var(--accent); }
 
 button, .button {
   background: var(--accent); color: #fff; border: none;
