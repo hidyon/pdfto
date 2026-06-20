@@ -30,10 +30,11 @@ from . import __version__
 from .analysis import analyze_pdf
 from .config import settings
 from .converter import ConversionError, convert
+from .jobs import JobManager
 from .models import (
-    ConversionResult,
     DocumentAnalysis,
     DocumentResponse,
+    Job,
     OutputFormat,
     Question,
 )
@@ -47,6 +48,7 @@ app = FastAPI(
 )
 
 storage = Storage(settings.data_dir)
+jobs = JobManager(settings.max_workers)
 
 _STATIC_DIR = Path(__file__).parent / "static"
 
@@ -127,45 +129,55 @@ def get_questions(doc_id: str) -> list[Question]:
     return build_questions(record.analysis)
 
 
-@app.post("/api/v1/documents/{doc_id}/convert", response_model=ConversionResult,
-          tags=["documents"])
-async def convert_document(
+@app.post("/api/v1/documents/{doc_id}/convert", response_model=Job,
+          status_code=202, tags=["documents"])
+def convert_document(
     doc_id: str,
     answers: dict = Body(
         default={},
         description="Flat mapping of question id to answer, e.g. "
         '{"output_format": "markdown", "do_ocr": true}.',
     ),
-) -> ConversionResult:
-    """Convert a previously uploaded document using the supplied answers."""
+) -> Job:
+    """Start converting a document; returns a job to poll.
+
+    Conversion runs in the background (it can take seconds to minutes).  Poll
+    ``GET /api/v1/jobs/{job_id}`` until the status is ``succeeded`` (then use
+    ``download_url``) or ``failed``.
+    """
 
     record = storage.get(doc_id)
     if record is None:
         raise HTTPException(404, "document not found")
 
     options = apply_answers(answers or {})
-    try:
-        converted = await run_in_threadpool(
-            convert, record.pdf_path, options, storage.doc_dir(doc_id)
+
+    def work() -> dict:
+        converted = convert(record.pdf_path, options, storage.doc_dir(doc_id))
+        output = storage.add_output(
+            doc_id, converted.content, converted.output_format,
+            converted.suggested_extension,
         )
-    except ConversionError as exc:
-        raise HTTPException(422, str(exc)) from exc
+        preview = converted.content[: settings.preview_chars]
+        return {
+            "download_url": f"/api/v1/documents/{doc_id}/download"
+                            f"?format={converted.output_format.value}",
+            "filename": output.filename,
+            "preview": preview,
+            "truncated": len(converted.content) > len(preview),
+        }
 
-    output = storage.add_output(
-        doc_id, converted.content, converted.output_format,
-        converted.suggested_extension,
-    )
+    return jobs.submit(doc_id, options.output_format, work)
 
-    preview = converted.content[: settings.preview_chars]
-    return ConversionResult(
-        document_id=doc_id,
-        output_format=converted.output_format,
-        filename=output.filename,
-        download_url=f"/api/v1/documents/{doc_id}/download"
-                     f"?format={converted.output_format.value}",
-        preview=preview,
-        truncated=len(converted.content) > len(preview),
-    )
+
+@app.get("/api/v1/jobs/{job_id}", response_model=Job, tags=["jobs"])
+def get_job(job_id: str) -> Job:
+    """Return the current state of a conversion job."""
+
+    job = jobs.get(job_id)
+    if job is None:
+        raise HTTPException(404, "job not found")
+    return job
 
 
 @app.get("/api/v1/documents/{doc_id}/download", tags=["documents"])

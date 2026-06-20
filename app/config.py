@@ -18,6 +18,8 @@ class Settings:
         self.max_upload_mb = int(os.environ.get("PDFTO_MAX_UPLOAD_MB", "50"))
         # Number of characters returned inline in conversion previews.
         self.preview_chars = int(os.environ.get("PDFTO_PREVIEW_CHARS", "4000"))
+        # Maximum number of conversions running concurrently.
+        self.max_workers = int(os.environ.get("PDFTO_MAX_WORKERS", "2"))
 
     @property
     def max_upload_bytes(self) -> int:

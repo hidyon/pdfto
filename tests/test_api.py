@@ -6,19 +6,22 @@ convert → download) is verified without pulling in docling's heavy ML models.
 
 from __future__ import annotations
 
+import time
+
 import pytest
 from fastapi.testclient import TestClient
 
 from app import main
-from app.converter import ConvertedDocument
-from app.models import OutputFormat
+from app.converter import ConversionError, ConvertedDocument
+from app.jobs import JobManager
 
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    # Isolate storage to a temp dir for each test.
+    # Isolate storage and a fresh single-worker job manager for each test.
     from app.storage import Storage
     monkeypatch.setattr(main, "storage", Storage(tmp_path))
+    monkeypatch.setattr(main, "jobs", JobManager(max_workers=1))
 
     def fake_convert(pdf_path, options, image_dir=None):
         return ConvertedDocument(
@@ -30,6 +33,19 @@ def client(tmp_path, monkeypatch):
 
     monkeypatch.setattr(main, "convert", fake_convert)
     return TestClient(main.app)
+
+
+def _wait_for_job(client, job_id, timeout=5.0):
+    """Poll a job until it leaves pending/running, like a real client would."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        r = client.get(f"/api/v1/jobs/{job_id}")
+        assert r.status_code == 200, r.text
+        job = r.json()
+        if job["status"] in ("succeeded", "failed"):
+            return job
+        time.sleep(0.02)
+    raise AssertionError("job did not finish in time")
 
 
 def test_health(client):
@@ -54,19 +70,44 @@ def test_full_flow(client, text_pdf):
     assert body["analysis"]["page_count"] == 2
     assert any(q["id"] == "output_format" for q in body["questions"])
 
-    # 2. convert
+    # 2. start conversion -> a job, not the result
     r = client.post(f"/api/v1/documents/{doc_id}/convert",
                     json={"output_format": "markdown"})
-    assert r.status_code == 200, r.text
-    result = r.json()
-    assert result["output_format"] == "markdown"
-    assert "# Converted" in result["preview"]
-    assert result["download_url"].endswith("format=markdown")
+    assert r.status_code == 202, r.text
+    job = r.json()
+    assert job["status"] in ("pending", "running", "succeeded")
+    assert job["output_format"] == "markdown"
 
-    # 3. download
-    r = client.get(result["download_url"])
+    # 3. poll until finished
+    job = _wait_for_job(client, job["id"])
+    assert job["status"] == "succeeded"
+    assert "# Converted" in job["preview"]
+    assert job["download_url"].endswith("format=markdown")
+
+    # 4. download
+    r = client.get(job["download_url"])
     assert r.status_code == 200
     assert b"# Converted" in r.content
+
+
+def test_failed_conversion_marks_job_failed(client, text_pdf, monkeypatch):
+    def boom(pdf_path, options, image_dir=None):
+        raise ConversionError("boom: bad pdf")
+    monkeypatch.setattr(main, "convert", boom)
+
+    r = client.post("/api/v1/documents",
+                    files={"file": ("doc.pdf", text_pdf, "application/pdf")})
+    doc_id = r.json()["id"]
+    r = client.post(f"/api/v1/documents/{doc_id}/convert", json={})
+    assert r.status_code == 202
+    job = _wait_for_job(client, r.json()["id"])
+    assert job["status"] == "failed"
+    assert "boom" in job["error"]
+
+
+def test_unknown_job_404(client):
+    r = client.get("/api/v1/jobs/nope")
+    assert r.status_code == 404
 
 
 def test_download_before_convert_404(client, text_pdf):

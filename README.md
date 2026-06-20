@@ -41,9 +41,13 @@ uvicorn app.main:app --reload
 
 ### インタラクティブ・フロー（UI と同じ）
 
+変換はバックグラウンドのジョブとして実行されます。投入してジョブ ID を受け取り、
+完了するまでポーリングします（重い PDF でもリクエストがタイムアウトしません）。
+
 ```
 POST /api/v1/documents              # PDF をアップロード → id・解析結果・質問が返る
-POST /api/v1/documents/{id}/convert # 回答(JSON)を送って変換 → プレビューと download_url
+POST /api/v1/documents/{id}/convert # 回答(JSON)を送って変換を開始 → 202 + ジョブ
+GET  /api/v1/jobs/{job_id}          # ジョブの状態をポーリング（succeeded で download_url）
 GET  /api/v1/documents/{id}/download?format=markdown   # 変換ファイルを取得
 ```
 
@@ -54,14 +58,22 @@ GET  /api/v1/documents/{id}/download?format=markdown   # 変換ファイルを�
 curl -F file=@report.pdf http://localhost:8000/api/v1/documents
 # → {"id":"...", "analysis":{...}, "questions":[...]}
 
-# 2. 回答を送って変換（question id → 回答 のフラットな JSON）
+# 2. 回答を送って変換を開始（question id → 回答 のフラットな JSON）
 curl -X POST http://localhost:8000/api/v1/documents/<ID>/convert \
      -H 'Content-Type: application/json' \
      -d '{"output_format":"markdown","do_ocr":false,"page_range":[1,5]}'
+# → 202 {"id":"<JOB_ID>","status":"pending", ...}
 
-# 3. ダウンロード
+# 3. 完了までポーリング（status が succeeded / failed になるまで）
+curl http://localhost:8000/api/v1/jobs/<JOB_ID>
+# → {"status":"succeeded","download_url":"...","preview":"..."}
+
+# 4. ダウンロード
 curl -OJ "http://localhost:8000/api/v1/documents/<ID>/download?format=markdown"
 ```
+
+> ジョブの状態は `pending` → `running` → `succeeded`（または `failed`）と遷移します。
+> 失敗時は `error` にメッセージが入ります。同時実行数は `PDFTO_MAX_WORKERS` で制御します。
 
 ### ワンショット（他システム向け）
 
@@ -91,6 +103,7 @@ curl -OJ "http://localhost:8000/api/v1/convert?output_format=markdown&do_ocr=fal
 | `PDFTO_DATA_DIR` | `data` | アップロード/出力の保存先 |
 | `PDFTO_MAX_UPLOAD_MB` | `50` | アップロード上限 (MB) |
 | `PDFTO_PREVIEW_CHARS` | `4000` | API が返すプレビューの文字数 |
+| `PDFTO_MAX_WORKERS` | `2` | 同時に実行する変換ジョブ数 |
 
 ## アーキテクチャ
 

@@ -135,23 +135,39 @@ function collectAnswers() {
 // --------------------------------------------------------------------------
 // Convert
 // --------------------------------------------------------------------------
+const POLL_INTERVAL_MS = 1500;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 $("#convert-btn").addEventListener("click", async () => {
   if (!currentDoc) return;
   const btn = $("#convert-btn");
   const status = $("#convert-status");
   btn.disabled = true;
   status.className = "status";
-  status.innerHTML = `<span class="spinner"></span>変換中…（初回はモデル読み込みで時間がかかることがあります）`;
+  status.innerHTML = `<span class="spinner"></span>変換を開始しています…`;
 
   try {
+    // 1. submit the job
     const res = await fetch(`${API}/documents/${currentDoc.id}/convert`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(collectAnswers()),
     });
     if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
-    const result = await res.json();
-    showResult(result);
+    let job = await res.json();
+
+    // 2. poll until it finishes
+    while (job.status === "pending" || job.status === "running") {
+      const label = job.status === "pending" ? "変換待機中…" : "変換中…（初回はモデル読み込みで時間がかかることがあります）";
+      status.innerHTML = `<span class="spinner"></span>${label}`;
+      await sleep(POLL_INTERVAL_MS);
+      const pr = await fetch(`${API}/jobs/${job.id}`);
+      if (!pr.ok) throw new Error((await pr.json()).detail || pr.statusText);
+      job = await pr.json();
+    }
+
+    if (job.status === "failed") throw new Error(job.error || "不明なエラー");
+    showResult(job);
     status.textContent = "";
   } catch (err) {
     status.className = "status error";

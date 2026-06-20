@@ -103,12 +103,31 @@ class DocumentResponse(BaseModel):
     questions: list[Question]
 
 
-class ConversionResult(BaseModel):
-    """Returned after a conversion completes."""
+class JobStatus(str, Enum):
+    """Lifecycle states of a conversion job."""
 
+    pending = "pending"  # queued, not started yet
+    running = "running"  # being converted
+    succeeded = "succeeded"
+    failed = "failed"
+
+
+class Job(BaseModel):
+    """A conversion job.
+
+    Conversions run in the background; clients submit a job and poll it.  A
+    ``succeeded`` job carries the preview and a ``download_url``; a ``failed``
+    job carries an ``error`` message.
+    """
+
+    id: str
     document_id: str
+    status: JobStatus
     output_format: OutputFormat
-    filename: str
-    download_url: str
-    preview: str
-    truncated: bool
+    created_at: float
+    updated_at: float
+    download_url: Optional[str] = None
+    filename: Optional[str] = None
+    preview: Optional[str] = None
+    truncated: bool = False
+    error: Optional[str] = None
