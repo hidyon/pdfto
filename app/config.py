@@ -29,6 +29,9 @@ class Settings:
         # Local directory holding pre-downloaded docling models (baked into the
         # Docker image). When unset, docling uses its default cache.
         self.docling_artifacts = os.environ.get("PDFTO_DOCLING_ARTIFACTS") or None
+        # Logging.
+        self.log_level = os.environ.get("PDFTO_LOG_LEVEL", "INFO").upper()
+        self.log_format = os.environ.get("PDFTO_LOG_FORMAT", "text").lower()
 
     @property
     def max_upload_bytes(self) -> int:

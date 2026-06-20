@@ -13,13 +13,17 @@ crashes the worker thread or the process.
 
 from __future__ import annotations
 
+import logging
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from typing import Callable, Optional
 
+from .logging_config import request_id_var
 from .models import Job, JobStatus, OutputFormat
+
+logger = logging.getLogger("pdfto.jobs")
 
 # A unit of work returns the fields to merge into the job on success.
 Work = Callable[[], dict]
@@ -48,7 +52,12 @@ class JobManager:
         )
         with self._lock:
             self._jobs[job.id] = job
-        self._executor.submit(self._run, job.id, work)
+        # Capture the originating request id so the worker thread's logs can be
+        # correlated back to the request that started the job.
+        rid = request_id_var.get()
+        logger.info("job submitted", extra={"job_id": job.id,
+                                             "document_id": document_id})
+        self._executor.submit(self._run, job.id, work, rid)
         return job
 
     def get(self, job_id: str) -> Optional[Job]:
@@ -63,13 +72,21 @@ class JobManager:
             updated = job.model_copy(update={**fields, "updated_at": time.time()})
             self._jobs[job_id] = updated
 
-    def _run(self, job_id: str, work: Work) -> None:
+    def _run(self, job_id: str, work: Work, request_id: str = "-") -> None:
+        request_id_var.set(request_id)
+        started = time.perf_counter()
         self._update(job_id, status=JobStatus.running)
         try:
             result = work() or {}
             self._update(job_id, status=JobStatus.succeeded, **result)
+            logger.info("job succeeded", extra={
+                "job_id": job_id, "status": "succeeded",
+                "duration_ms": round((time.perf_counter() - started) * 1000)})
         except Exception as exc:  # noqa: BLE001 - never let a job kill the worker
             self._update(job_id, status=JobStatus.failed, error=str(exc))
+            logger.exception("job failed", extra={
+                "job_id": job_id, "status": "failed",
+                "duration_ms": round((time.perf_counter() - started) * 1000)})
 
     def cleanup_expired(self, ttl_seconds: float) -> list[str]:
         """Drop finished jobs whose last update is older than *ttl_seconds*.

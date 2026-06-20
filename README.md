@@ -129,6 +129,22 @@ curl -OJ "http://localhost:8000/api/v1/convert?output_format=markdown&do_ocr=fal
 | `PDFTO_MAX_WORKERS` | `2` | 同時に実行する変換ジョブ数 |
 | `PDFTO_TTL_MINUTES` | `60` | 保存物（PDF/成果物/完了ジョブ）の保持時間（分）。`0` 以下で無効 |
 | `PDFTO_SWEEP_INTERVAL_SECONDS` | `300` | 期限切れを自動削除する掃除の実行間隔（秒） |
+| `PDFTO_LOG_LEVEL` | `INFO` | ログレベル（`DEBUG`/`INFO`/`WARNING` など） |
+| `PDFTO_LOG_FORMAT` | `text` | ログ出力形式（`text` / `json`） |
+
+## ログと監視
+
+すべてのログ行に **リクエスト ID** が付き、アクセスログ・変換ジョブ・エラーを
+横断して相関できます。各レスポンスには `X-Request-ID` ヘッダが付与され、
+リクエスト側で `X-Request-ID` を指定すればその値が踏襲されます。
+本番では `PDFTO_LOG_FORMAT=json` を推奨します。
+
+```json
+{"time":"...","level":"INFO","logger":"pdfto","request_id":"...","message":"POST /api/v1/documents/.../convert -> 202","status":202,"duration_ms":3}
+```
+
+想定外のエラーは内部情報を漏らさず `{"detail":"internal server error","request_id":"..."}`
+として 500 で返り、トレースバックはサーバログにのみ記録されます。
 
 ## アーキテクチャ
 

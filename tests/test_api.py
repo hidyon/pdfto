@@ -110,6 +110,31 @@ def test_unknown_job_404(client):
     assert r.status_code == 404
 
 
+def test_request_id_header_present_and_echoed(client):
+    r = client.get("/api/health")
+    assert r.headers.get("X-Request-ID")
+
+    r2 = client.get("/api/health", headers={"X-Request-ID": "my-trace-1"})
+    assert r2.headers.get("X-Request-ID") == "my-trace-1"
+
+
+def test_unhandled_error_returns_clean_500(client, monkeypatch):
+    def boom(*args, **kwargs):
+        raise RuntimeError("kaboom")
+    monkeypatch.setattr(main.storage, "get", boom)
+
+    # Let the app's exception handler produce the response instead of TestClient
+    # re-raising the error.
+    raw = TestClient(main.app, raise_server_exceptions=False)
+    r = raw.get("/api/v1/documents/anything")
+    assert r.status_code == 500
+    body = r.json()
+    assert body["detail"] == "internal server error"
+    assert body["request_id"]
+    assert "kaboom" not in r.text  # internals are not leaked
+    assert r.headers.get("X-Request-ID")
+
+
 def test_download_before_convert_404(client, text_pdf):
     r = client.post("/api/v1/documents",
                     files={"file": ("doc.pdf", text_pdf, "application/pdf")})

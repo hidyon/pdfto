@@ -26,6 +26,7 @@ app/
   jobs.py        変換をバックグラウンド実行するジョブ基盤（スレッドプール）
   cleanup.py     期限切れの保存物/ジョブを定期削除する掃除スレッド
   storage.py     アップロードと変換結果の保存（ファイル + インメモリ索引）
+  logging_config.py  構造化ログ設定（リクエスト ID 付与・JSON/テキスト）
   models.py      API・コアで共有する Pydantic モデル
   main.py        FastAPI アプリ（REST API + Web UI 配信）
   static/        Web UI（HTML/CSS/JS）

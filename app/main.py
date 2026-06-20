@@ -18,13 +18,16 @@ single request.
 
 from __future__ import annotations
 
+import logging
+import time
+import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-from fastapi import Body, FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import Body, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__
@@ -33,6 +36,7 @@ from .cleanup import PeriodicCleaner
 from .config import settings
 from .converter import ConversionError, convert
 from .jobs import JobManager
+from .logging_config import request_id_var, setup_logging
 from .models import (
     DocumentAnalysis,
     DocumentResponse,
@@ -43,6 +47,9 @@ from .models import (
 from .questions import apply_answers, build_questions
 from .storage import Storage
 
+setup_logging(settings.log_level, settings.log_format)
+logger = logging.getLogger("pdfto")
+
 storage = Storage(settings.data_dir)
 jobs = JobManager(settings.max_workers)
 
@@ -50,6 +57,9 @@ jobs = JobManager(settings.max_workers)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Start the periodic cleaner while the app is running (if TTL is enabled)."""
+    # Re-apply our logging config so it survives uvicorn's own setup.
+    setup_logging(settings.log_level, settings.log_format)
+    logger.info("pdfto starting", extra={"version": __version__})
     cleaner = None
     if settings.cleanup_enabled:
         cleaner = PeriodicCleaner(
@@ -61,6 +71,7 @@ async def lifespan(app: FastAPI):
     finally:
         if cleaner is not None:
             cleaner.stop()
+        logger.info("pdfto shutting down")
 
 
 app = FastAPI(
@@ -69,6 +80,41 @@ app = FastAPI(
     description="Convert PDF documents into Markdown, HTML, JSON or text.",
     lifespan=lifespan,
 )
+
+
+@app.middleware("http")
+async def request_context(request: Request, call_next):
+    """Assign a request id, log access, and expose X-Request-ID.
+
+    The id is not reset after the request: each request runs in its own task
+    context (so there is no cross-request leak), and leaving it set lets the
+    outer exception handler report the same id on failures.
+    """
+    rid = request.headers.get("x-request-id") or uuid.uuid4().hex
+    request_id_var.set(rid)
+    start = time.perf_counter()
+    response = await call_next(request)
+    duration_ms = round((time.perf_counter() - start) * 1000)
+    logger.info(
+        "%s %s -> %s", request.method, request.url.path, response.status_code,
+        extra={"method": request.method, "path": request.url.path,
+               "status": response.status_code, "duration_ms": duration_ms},
+    )
+    response.headers["X-Request-ID"] = rid
+    return response
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """Log the traceback and return a clean 500 without leaking internals."""
+    rid = request_id_var.get()
+    logger.exception("unhandled error", extra={"path": request.url.path})
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "internal server error", "request_id": rid},
+        headers={"X-Request-ID": rid},
+    )
+
 
 _STATIC_DIR = Path(__file__).parent / "static"
 
