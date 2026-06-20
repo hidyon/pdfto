@@ -104,6 +104,8 @@ curl -OJ "http://localhost:8000/api/v1/convert?output_format=markdown&do_ocr=fal
 | `PDFTO_MAX_UPLOAD_MB` | `50` | アップロード上限 (MB) |
 | `PDFTO_PREVIEW_CHARS` | `4000` | API が返すプレビューの文字数 |
 | `PDFTO_MAX_WORKERS` | `2` | 同時に実行する変換ジョブ数 |
+| `PDFTO_TTL_MINUTES` | `60` | 保存物（PDF/成果物/完了ジョブ）の保持時間（分）。`0` 以下で無効 |
+| `PDFTO_SWEEP_INTERVAL_SECONDS` | `300` | 期限切れを自動削除する掃除の実行間隔（秒） |
 
 ## アーキテクチャ
 

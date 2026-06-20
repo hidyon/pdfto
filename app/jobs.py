@@ -71,5 +71,23 @@ class JobManager:
         except Exception as exc:  # noqa: BLE001 - never let a job kill the worker
             self._update(job_id, status=JobStatus.failed, error=str(exc))
 
+    def cleanup_expired(self, ttl_seconds: float) -> list[str]:
+        """Drop finished jobs whose last update is older than *ttl_seconds*.
+
+        Only terminal jobs (``succeeded``/``failed``) are eligible; in-flight
+        jobs keep a recent ``updated_at`` and are left alone.
+        """
+
+        now = time.time()
+        terminal = (JobStatus.succeeded, JobStatus.failed)
+        with self._lock:
+            expired = [
+                jid for jid, job in self._jobs.items()
+                if job.status in terminal and now - job.updated_at > ttl_seconds
+            ]
+            for jid in expired:
+                del self._jobs[jid]
+        return expired
+
     def shutdown(self) -> None:
         self._executor.shutdown(wait=False)

@@ -18,6 +18,7 @@ single request.
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
@@ -28,6 +29,7 @@ from fastapi.staticfiles import StaticFiles
 
 from . import __version__
 from .analysis import analyze_pdf
+from .cleanup import PeriodicCleaner
 from .config import settings
 from .converter import ConversionError, convert
 from .jobs import JobManager
@@ -41,14 +43,32 @@ from .models import (
 from .questions import apply_answers, build_questions
 from .storage import Storage
 
+storage = Storage(settings.data_dir)
+jobs = JobManager(settings.max_workers)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Start the periodic cleaner while the app is running (if TTL is enabled)."""
+    cleaner = None
+    if settings.cleanup_enabled:
+        cleaner = PeriodicCleaner(
+            storage, jobs, settings.ttl_seconds, settings.sweep_interval_seconds
+        )
+        cleaner.start()
+    try:
+        yield
+    finally:
+        if cleaner is not None:
+            cleaner.stop()
+
+
 app = FastAPI(
     title="PDFto",
     version=__version__,
     description="Convert PDF documents into Markdown, HTML, JSON or text.",
+    lifespan=lifespan,
 )
-
-storage = Storage(settings.data_dir)
-jobs = JobManager(settings.max_workers)
 
 _STATIC_DIR = Path(__file__).parent / "static"
 

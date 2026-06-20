@@ -24,6 +24,7 @@ app/
   questions.py   解析結果から質問を生成し、回答をオプションへ変換
   converter.py   docling を使った変換コア（遅延 import）
   jobs.py        変換をバックグラウンド実行するジョブ基盤（スレッドプール）
+  cleanup.py     期限切れの保存物/ジョブを定期削除する掃除スレッド
   storage.py     アップロードと変換結果の保存（ファイル + インメモリ索引）
   models.py      API・コアで共有する Pydantic モデル
   main.py        FastAPI アプリ（REST API + Web UI 配信）

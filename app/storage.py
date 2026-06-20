@@ -99,3 +99,37 @@ class Storage:
             return False
         shutil.rmtree(self.doc_dir(doc_id), ignore_errors=True)
         return True
+
+    def cleanup_expired(self, ttl_seconds: float) -> list[str]:
+        """Delete documents older than *ttl_seconds* and orphaned directories.
+
+        Returns the ids (or directory names) that were removed.  Orphans are
+        on-disk ``data/<id>/`` directories with no index entry — typically
+        left over from a previous process run, since the index is in memory.
+        """
+
+        now = time.time()
+        removed: list[str] = []
+
+        with self._lock:
+            expired = [
+                doc_id for doc_id, rec in self._docs.items()
+                if now - rec.created_at > ttl_seconds
+            ]
+        for doc_id in expired:
+            if self.delete(doc_id):
+                removed.append(doc_id)
+
+        # Sweep orphaned directories left on disk without an index entry.
+        with self._lock:
+            known = set(self._docs)
+        for child in self._root.iterdir():
+            if not child.is_dir() or child.name in known:
+                continue
+            try:
+                if now - child.stat().st_mtime > ttl_seconds:
+                    shutil.rmtree(child, ignore_errors=True)
+                    removed.append(child.name)
+            except OSError:
+                continue
+        return removed
