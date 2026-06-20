@@ -45,7 +45,14 @@ CREATE TABLE IF NOT EXISTS jobs (
     filename      TEXT,
     preview       TEXT,
     truncated     INTEGER NOT NULL DEFAULT 0,
-    error         TEXT
+    error         TEXT,
+    batch_id      TEXT
+);
+
+CREATE TABLE IF NOT EXISTS batches (
+    id         TEXT PRIMARY KEY,
+    created_at REAL NOT NULL,
+    count      INTEGER NOT NULL
 );
 """
 
@@ -61,7 +68,14 @@ class Database:
             self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.execute("PRAGMA foreign_keys=ON")
             self._conn.executescript(_SCHEMA)
+            self._migrate()
             self._conn.commit()
+
+    def _migrate(self) -> None:
+        """Apply backward-compatible schema upgrades for existing databases."""
+        cols = {r["name"] for r in self._conn.execute("PRAGMA table_info(jobs)")}
+        if "batch_id" not in cols:
+            self._conn.execute("ALTER TABLE jobs ADD COLUMN batch_id TEXT")
 
     def execute(self, sql: str, params: tuple = ()) -> None:
         with self._lock:

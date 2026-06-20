@@ -16,6 +16,8 @@ class Settings:
     def __init__(self) -> None:
         self.data_dir = Path(os.environ.get("PDFTO_DATA_DIR", "data"))
         self.max_upload_mb = int(os.environ.get("PDFTO_MAX_UPLOAD_MB", "50"))
+        # Maximum number of files accepted in one batch request.
+        self.max_batch_files = int(os.environ.get("PDFTO_MAX_BATCH_FILES", "20"))
         # Number of characters returned inline in conversion previews.
         self.preview_chars = int(os.environ.get("PDFTO_PREVIEW_CHARS", "4000"))
         # Maximum number of conversions running concurrently.

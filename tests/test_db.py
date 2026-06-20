@@ -33,6 +33,24 @@ def test_cascade_deletes_outputs(tmp_path):
     assert db.query("SELECT * FROM outputs WHERE document_id = 'd1'") == []
 
 
+def test_migration_adds_batch_id_to_existing_jobs(tmp_path):
+    import sqlite3
+    path = tmp_path / "old.db"
+    # Simulate a pre-batch jobs table (no batch_id column).
+    conn = sqlite3.connect(path)
+    conn.execute(
+        "CREATE TABLE jobs (id TEXT PRIMARY KEY, document_id TEXT, status TEXT,"
+        " output_format TEXT, created_at REAL, updated_at REAL, download_url TEXT,"
+        " filename TEXT, preview TEXT, truncated INTEGER, error TEXT)"
+    )
+    conn.commit()
+    conn.close()
+
+    db = Database(path)  # opening should migrate
+    cols = {r["name"] for r in db.query("SELECT name FROM pragma_table_info('jobs')")}
+    assert "batch_id" in cols
+
+
 def test_concurrent_writes_are_serialised(tmp_path):
     db = Database(tmp_path / "t.db")
 

@@ -112,6 +112,57 @@ def test_unknown_job_404(client):
     assert r.status_code == 404
 
 
+def test_batch_convert_flow(client, text_pdf):
+    files = [
+        ("files", ("a.pdf", text_pdf, "application/pdf")),
+        ("files", ("b.pdf", text_pdf, "application/pdf")),
+    ]
+    r = client.post("/api/v1/batches?output_format=markdown", files=files)
+    assert r.status_code == 202, r.text
+    batch = r.json()
+    assert batch["count"] == 2
+    assert len(batch["items"]) == 2
+    assert all(item["job_id"] and item["document_id"] for item in batch["items"])
+
+    # Each job finishes and its document is downloadable.
+    for item in batch["items"]:
+        job = _wait_for_job(client, item["job_id"])
+        assert job["status"] == "succeeded"
+        d = client.get(f"/api/v1/documents/{item['document_id']}/download?format=markdown")
+        assert d.status_code == 200
+
+    # Aggregate status endpoint.
+    g = client.get(f"/api/v1/batches/{batch['id']}")
+    assert g.status_code == 200
+    agg = g.json()
+    assert agg["count"] == 2
+    assert {i["status"] for i in agg["items"]} == {"succeeded"}
+
+
+def test_batch_unknown_404(client):
+    assert client.get("/api/v1/batches/nope").status_code == 404
+
+
+def test_batch_rejects_too_many_files(client, text_pdf, monkeypatch):
+    from app.config import settings
+    monkeypatch.setattr(settings, "max_batch_files", 1)
+    files = [
+        ("files", ("a.pdf", text_pdf, "application/pdf")),
+        ("files", ("b.pdf", text_pdf, "application/pdf")),
+    ]
+    r = client.post("/api/v1/batches", files=files)
+    assert r.status_code == 422
+
+
+def test_batch_rejects_non_pdf(client, text_pdf):
+    files = [
+        ("files", ("a.pdf", text_pdf, "application/pdf")),
+        ("files", ("b.txt", b"not a pdf", "text/plain")),
+    ]
+    r = client.post("/api/v1/batches", files=files)
+    assert r.status_code in (400, 415)
+
+
 def test_request_id_header_present_and_echoed(client):
     r = client.get("/api/health")
     assert r.headers.get("X-Request-ID")

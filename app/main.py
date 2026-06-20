@@ -39,6 +39,8 @@ from .converter import ConversionError, convert
 from .jobs import JobManager
 from .logging_config import request_id_var, setup_logging
 from .models import (
+    BatchItem,
+    BatchResponse,
     DocumentAnalysis,
     DocumentResponse,
     Job,
@@ -184,6 +186,25 @@ def _analyze_bytes(data: bytes) -> DocumentAnalysis:
         return analyze_pdf(tmp.name)
 
 
+def _conversion_work(doc_id: str, pdf_path, options):
+    """Build the job's work closure: convert, persist, return result fields."""
+    def work() -> dict:
+        converted = convert(pdf_path, options, storage.doc_dir(doc_id))
+        output = storage.add_output(
+            doc_id, converted.content, converted.output_format,
+            converted.suggested_extension,
+        )
+        preview = converted.content[: settings.preview_chars]
+        return {
+            "download_url": f"/api/v1/documents/{doc_id}/download"
+                            f"?format={converted.output_format.value}",
+            "filename": output.filename,
+            "preview": preview,
+            "truncated": len(converted.content) > len(preview),
+        }
+    return work
+
+
 # --------------------------------------------------------------------------- #
 # API
 # --------------------------------------------------------------------------- #
@@ -266,22 +287,7 @@ def convert_document(
             raise HTTPException(422, error)
 
     options = apply_answers(answers or {})
-
-    def work() -> dict:
-        converted = convert(record.pdf_path, options, storage.doc_dir(doc_id))
-        output = storage.add_output(
-            doc_id, converted.content, converted.output_format,
-            converted.suggested_extension,
-        )
-        preview = converted.content[: settings.preview_chars]
-        return {
-            "download_url": f"/api/v1/documents/{doc_id}/download"
-                            f"?format={converted.output_format.value}",
-            "filename": output.filename,
-            "preview": preview,
-            "truncated": len(converted.content) > len(preview),
-        }
-
+    work = _conversion_work(doc_id, record.pdf_path, options)
     return jobs.submit(doc_id, options.output_format, work, callback_url=callback_url)
 
 
@@ -353,6 +359,80 @@ async def convert_oneshot(
     return FileResponse(
         output.path, filename=output.filename, media_type="application/octet-stream"
     )
+
+
+# --------------------------------------------------------------------------- #
+# Batch
+# --------------------------------------------------------------------------- #
+@app.post("/api/v1/batches", response_model=BatchResponse, status_code=202,
+          tags=["batch"])
+async def create_batch(
+    files: list[UploadFile] = File(...),
+    output_format: OutputFormat = Query(default=OutputFormat.markdown),
+    do_ocr: bool = Query(default=False),
+    do_table_structure: bool = Query(default=True),
+    callback_url: Optional[str] = Query(default=None),
+) -> BatchResponse:
+    """Submit several PDFs at once; each becomes its own conversion job.
+
+    Options are shared by all files (batches are non-interactive).  Poll the
+    returned ``job_id``s, or ``GET /api/v1/batches/{id}`` for aggregate status.
+    """
+    if not files:
+        raise HTTPException(422, "no files provided")
+    if len(files) > settings.max_batch_files:
+        raise HTTPException(422, f"too many files (max {settings.max_batch_files})")
+    if callback_url:
+        error = check_url(callback_url, settings.webhook_allowed_hosts)
+        if error:
+            raise HTTPException(422, error)
+
+    # Validate and analyse every file first so a single bad file rejects the
+    # whole batch (no partial submission).
+    prepared = []
+    for f in files:
+        data = await _read_upload(f)
+        filename = f.filename or "document.pdf"
+        try:
+            analysis = _analyze_bytes(data)
+        except Exception as exc:  # noqa: BLE001
+            raise HTTPException(400, f"could not read PDF '{filename}': {exc}") from exc
+        prepared.append((filename, data, analysis))
+
+    options = apply_answers({
+        "output_format": output_format.value,
+        "do_ocr": do_ocr,
+        "do_table_structure": do_table_structure,
+    })
+    batch_id = uuid.uuid4().hex
+    items: list[BatchItem] = []
+    for filename, data, analysis in prepared:
+        record = storage.create_document(filename, data, analysis)
+        work = _conversion_work(record.id, record.pdf_path, options)
+        job = jobs.submit(record.id, options.output_format, work,
+                          callback_url=callback_url, batch_id=batch_id)
+        items.append(BatchItem(filename=filename, document_id=record.id,
+                               job_id=job.id, status=job.status))
+    jobs.create_batch(batch_id, len(items))
+    return BatchResponse(id=batch_id, created_at=time.time(),
+                         count=len(items), items=items)
+
+
+@app.get("/api/v1/batches/{batch_id}", response_model=BatchResponse, tags=["batch"])
+def get_batch(batch_id: str) -> BatchResponse:
+    """Return a batch and the current status of each of its jobs."""
+    row = jobs.get_batch(batch_id)
+    if row is None:
+        raise HTTPException(404, "batch not found")
+    items: list[BatchItem] = []
+    for job in jobs.list_by_batch(batch_id):
+        doc = storage.get(job.document_id)
+        items.append(BatchItem(
+            filename=doc.filename if doc else "(deleted)",
+            document_id=job.document_id, job_id=job.id, status=job.status,
+        ))
+    return BatchResponse(id=batch_id, created_at=row["created_at"],
+                         count=row["count"], items=items)
 
 
 # --------------------------------------------------------------------------- #

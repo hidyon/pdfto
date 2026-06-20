@@ -94,6 +94,24 @@ class Question(BaseModel):
     choices: Optional[list[QuestionChoice]] = None
 
 
+class BatchItem(BaseModel):
+    """One file within a batch and the job converting it."""
+
+    filename: str
+    document_id: str
+    job_id: str
+    status: JobStatus
+
+
+class BatchResponse(BaseModel):
+    """A batch submission and the current state of its items."""
+
+    id: str
+    created_at: float
+    count: int
+    items: list[BatchItem]
+
+
 class DocumentResponse(BaseModel):
     """Returned right after upload."""
 

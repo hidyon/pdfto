@@ -76,7 +76,7 @@ API ファーストの最小構成を成立させる。
 |------|------|------|------|
 | M2-1 | API キー認証 + レート制限 | done | [0006](specs/0006-auth-rate-limit.md) |
 | M2-2 | Webhook / コールバック（変換完了通知） | done | [0007](specs/0007-webhooks.md) |
-| M2-3 | バッチ変換（複数 PDF を一括投入） | todo | — |
+| M2-3 | バッチ変換（複数 PDF を一括投入） | done | [0008](specs/0008-batch.md) |
 | M2-4 | クライアント SDK もしくは OpenAPI からの生成手順 | todo | — |
 
 ---

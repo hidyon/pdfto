@@ -74,11 +74,13 @@ class JobManager:
         return len(rows)
 
     def submit(self, document_id: str, output_format: OutputFormat,
-               work: Work, callback_url: Optional[str] = None) -> Job:
+               work: Work, callback_url: Optional[str] = None,
+               batch_id: Optional[str] = None) -> Job:
         """Register a job and schedule *work* to run in the background.
 
         If *callback_url* is given, a completion webhook is POSTed there once
         the job finishes (best-effort; failures are logged, not raised).
+        *batch_id* groups the job under a batch (see :meth:`create_batch`).
         """
 
         now = time.time()
@@ -92,8 +94,10 @@ class JobManager:
         )
         self._db.execute(
             "INSERT INTO jobs (id, document_id, status, output_format,"
-            " created_at, updated_at, truncated) VALUES (?, ?, ?, ?, ?, ?, 0)",
-            (job.id, document_id, job.status.value, output_format.value, now, now),
+            " created_at, updated_at, truncated, batch_id)"
+            " VALUES (?, ?, ?, ?, ?, ?, 0, ?)",
+            (job.id, document_id, job.status.value, output_format.value, now, now,
+             batch_id),
         )
         rid = request_id_var.get()
         logger.info("job submitted", extra={"job_id": job.id,
@@ -154,6 +158,22 @@ class JobManager:
             secret=settings.webhook_secret,
             timeout=settings.webhook_timeout,
         )
+
+    # -- batches ------------------------------------------------------------ #
+    def create_batch(self, batch_id: str, count: int) -> None:
+        self._db.execute(
+            "INSERT INTO batches (id, created_at, count) VALUES (?, ?, ?)",
+            (batch_id, time.time(), count),
+        )
+
+    def get_batch(self, batch_id: str):
+        return self._db.query_one("SELECT * FROM batches WHERE id = ?", (batch_id,))
+
+    def list_by_batch(self, batch_id: str) -> list[Job]:
+        rows = self._db.query(
+            "SELECT * FROM jobs WHERE batch_id = ? ORDER BY created_at", (batch_id,)
+        )
+        return [_row_to_job(row) for row in rows]
 
     def cleanup_expired(self, ttl_seconds: float) -> list[str]:
         """Drop finished jobs whose last update is older than *ttl_seconds*."""

@@ -107,6 +107,24 @@ curl -OJ "http://localhost:8000/api/v1/convert?output_format=markdown&do_ocr=fal
      -F file=@report.pdf
 ```
 
+### バッチ変換（複数 PDF 一括）
+
+複数の PDF を 1 リクエストで投入します。ファイルごとに非同期ジョブが作られ、
+バッチ単位で進捗を集約できます（オプションは全ファイル共通）。
+
+```bash
+# 投入（202 + バッチと各ファイルの job_id が返る）
+curl -X POST "http://localhost:8000/api/v1/batches?output_format=markdown" \
+     -F files=@a.pdf -F files=@b.pdf -F files=@c.pdf
+
+# バッチの集約ステータス
+curl "http://localhost:8000/api/v1/batches/<BATCH_ID>"
+# → {"id":"...","count":3,"items":[{"filename":"a.pdf","document_id":"...","job_id":"...","status":"succeeded"}, ...]}
+```
+
+各成果物は通常どおり `GET /api/v1/documents/{document_id}/download?format=...` で
+取得します。1 バッチのファイル数は `PDFTO_MAX_BATCH_FILES`（既定 20）まで。
+
 ### 質問とオプションの対応
 
 各質問の `id` は変換オプションのフィールド名と一致しており、回答はそのまま送れます。
@@ -125,6 +143,7 @@ curl -OJ "http://localhost:8000/api/v1/convert?output_format=markdown&do_ocr=fal
 |------|--------|------|
 | `PDFTO_DATA_DIR` | `data` | アップロード/出力の保存先 |
 | `PDFTO_MAX_UPLOAD_MB` | `50` | アップロード上限 (MB) |
+| `PDFTO_MAX_BATCH_FILES` | `20` | 1 バッチで受け付ける最大ファイル数 |
 | `PDFTO_PREVIEW_CHARS` | `4000` | API が返すプレビューの文字数 |
 | `PDFTO_MAX_WORKERS` | `2` | 同時に実行する変換ジョブ数 |
 | `PDFTO_TTL_MINUTES` | `60` | 保存物（PDF/成果物/完了ジョブ）の保持時間（分）。`0` 以下で無効 |
