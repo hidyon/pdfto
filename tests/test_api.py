@@ -163,6 +163,44 @@ def test_batch_rejects_non_pdf(client, text_pdf):
     assert r.status_code in (400, 415)
 
 
+def test_referenced_images_assets_and_zip(client, text_pdf, monkeypatch):
+    # Fake a referenced-mode conversion that produces an image asset.
+    def fake_convert(pdf_path, options, image_dir=None):
+        return ConvertedDocument(
+            content="# Doc\n\n![img](assets/img_000.png)\n",
+            output_format=options.output_format,
+            suggested_extension="md",
+            assets={"img_000.png": b"PNGBYTES"},
+        )
+    monkeypatch.setattr(main, "convert", fake_convert)
+
+    up = client.post("/api/v1/documents",
+                     files={"file": ("doc.pdf", text_pdf, "application/pdf")})
+    doc_id = up.json()["id"]
+    job = client.post(f"/api/v1/documents/{doc_id}/convert",
+                      json={"output_format": "markdown", "image_mode": "referenced"})
+    _wait_for_job(client, job.json()["id"])
+
+    # Asset is served.
+    a = client.get(f"/api/v1/documents/{doc_id}/assets/img_000.png")
+    assert a.status_code == 200
+    assert a.content == b"PNGBYTES"
+
+    # Path traversal is rejected.
+    bad = client.get(f"/api/v1/documents/{doc_id}/assets/..%2Fsource.pdf")
+    assert bad.status_code in (400, 404)
+
+    # Zip bundle contains the output and the asset.
+    import io
+    import zipfile
+    z = client.get(f"/api/v1/documents/{doc_id}/download?format=markdown&bundle=zip")
+    assert z.status_code == 200
+    assert z.headers["content-type"] == "application/zip"
+    names = zipfile.ZipFile(io.BytesIO(z.content)).namelist()
+    assert "doc.md" in names
+    assert "assets/img_000.png" in names
+
+
 def test_request_id_header_present_and_echoed(client):
     r = client.get("/api/health")
     assert r.headers.get("X-Request-ID")

@@ -140,6 +140,24 @@ curl -OJ "http://localhost:8000/api/v1/convert?do_ocr=true&ocr_languages=ja&ocr_
 > OCR モデル（EasyOCR）は Docker イメージに焼き込まれておらず、初回 OCR 時に
 > ダウンロードされます（オフライン環境では別途用意が必要）。
 
+### 画像の扱い（参照モード）
+
+`image_mode` で画像の扱いを選べます。
+
+- `placeholder`（既定）: 画像はプレースホルダのみ（軽量）
+- `embedded`: 本文に base64 で埋め込む（単一ファイルで完結）
+- `referenced`: 画像を別ファイルに書き出して `assets/<name>` を参照
+
+`referenced` では、画像は個別に保存され次の方法で取得できます。
+
+```bash
+# 本文＋画像をまとめて ZIP でダウンロード
+curl -OJ "http://localhost:8000/api/v1/documents/<ID>/download?format=markdown&bundle=zip"
+
+# 個別の画像を取得
+curl -O "http://localhost:8000/api/v1/documents/<ID>/assets/<filename>"
+```
+
 ### 質問とオプションの対応
 
 各質問の `id` は変換オプションのフィールド名と一致しており、回答はそのまま送れます。

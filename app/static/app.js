@@ -206,6 +206,17 @@ function showResult(result) {
   link.href = result.download_url;
   link.setAttribute("download", result.filename);
   link.textContent = `${result.filename} をダウンロード`;
+
+  // Offer a zip (output + referenced images) when referenced mode was chosen.
+  const imageSel = document.querySelector('#questions-form [data-qid="image_mode"]');
+  const zip = $("#download-zip");
+  if (imageSel && imageSel.value === "referenced") {
+    zip.href = result.download_url + "&bundle=zip";
+    zip.classList.remove("hidden");
+  } else {
+    zip.classList.add("hidden");
+  }
+
   $("#step-result").classList.remove("hidden");
   $("#step-result").scrollIntoView({ behavior: "smooth" });
 }

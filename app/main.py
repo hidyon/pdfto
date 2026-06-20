@@ -28,7 +28,7 @@ from typing import Optional
 
 from fastapi import Body, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__
@@ -192,7 +192,7 @@ def _conversion_work(doc_id: str, pdf_path, options):
         converted = convert(pdf_path, options, storage.doc_dir(doc_id))
         output = storage.add_output(
             doc_id, converted.content, converted.output_format,
-            converted.suggested_extension,
+            converted.suggested_extension, assets=converted.assets,
         )
         preview = converted.content[: settings.preview_chars]
         return {
@@ -303,15 +303,57 @@ def get_job(job_id: str) -> Job:
 
 @app.get("/api/v1/documents/{doc_id}/download", tags=["documents"])
 def download(doc_id: str,
-             format: OutputFormat = Query(default=OutputFormat.markdown)) -> FileResponse:
+             format: OutputFormat = Query(default=OutputFormat.markdown),
+             bundle: Optional[str] = Query(
+                 default=None,
+                 description="Set to 'zip' to download the output plus its "
+                             "referenced images as a single archive.")):
     output = storage.get_output(doc_id, format.value)
     if output is None:
         raise HTTPException(404, "no converted output for that format; convert first")
+
+    if bundle == "zip":
+        return _zip_response(doc_id, output)
+
     return FileResponse(
         output.path,
         filename=output.filename,
         media_type="application/octet-stream",
     )
+
+
+def _zip_response(doc_id: str, output) -> Response:
+    """Bundle the output file and its assets/ directory into a zip."""
+    import io
+    import zipfile
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.write(output.path, arcname=output.filename)
+        adir = storage.asset_dir(doc_id)
+        if adir.is_dir():
+            for asset in sorted(adir.iterdir()):
+                if asset.is_file():
+                    zf.write(asset, arcname=f"assets/{asset.name}")
+    buf.seek(0)
+    zip_name = f"{Path(output.filename).stem}.zip"
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{zip_name}"'},
+    )
+
+
+@app.get("/api/v1/documents/{doc_id}/assets/{filename}", tags=["documents"])
+def get_asset(doc_id: str, filename: str) -> FileResponse:
+    """Serve a referenced image written during conversion."""
+    # Reject path traversal: only a bare filename is allowed.
+    if filename != Path(filename).name or filename in ("", ".", ".."):
+        raise HTTPException(400, "invalid asset name")
+    path = storage.asset_dir(doc_id) / filename
+    if not path.is_file():
+        raise HTTPException(404, "asset not found")
+    return FileResponse(path)
 
 
 @app.delete("/api/v1/documents/{doc_id}", status_code=204, tags=["documents"])
@@ -356,7 +398,7 @@ async def convert_oneshot(
 
     output = storage.add_output(
         record.id, converted.content, converted.output_format,
-        converted.suggested_extension,
+        converted.suggested_extension, assets=converted.assets,
     )
     return FileResponse(
         output.path, filename=output.filename, media_type="application/octet-stream"

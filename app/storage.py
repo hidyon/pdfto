@@ -87,8 +87,11 @@ class Storage:
         return True
 
     # -- outputs ------------------------------------------------------------ #
+    def asset_dir(self, doc_id: str) -> Path:
+        return self.doc_dir(doc_id) / "assets"
+
     def add_output(self, doc_id: str, content: str, output_format: OutputFormat,
-                   extension: str) -> OutputRecord:
+                   extension: str, assets: Optional[dict] = None) -> OutputRecord:
         record = self.get(doc_id)
         if record is None:
             raise KeyError(doc_id)
@@ -96,6 +99,13 @@ class Storage:
         filename = f"{base}.{extension}"
         out_path = self.doc_dir(doc_id) / f"output.{extension}"
         out_path.write_text(content, encoding="utf-8")
+        if assets:
+            adir = self.asset_dir(doc_id)
+            adir.mkdir(parents=True, exist_ok=True)
+            for name, data in assets.items():
+                # Guard against odd names; keep only the basename.
+                safe = Path(name).name
+                (adir / safe).write_bytes(data)
         created_at = time.time()
         self.db.execute(
             "INSERT OR REPLACE INTO outputs "

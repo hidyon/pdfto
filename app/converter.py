@@ -9,7 +9,7 @@ schema never pay that cost.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional
@@ -29,6 +29,7 @@ class ConvertedDocument:
     content: str
     output_format: OutputFormat
     suggested_extension: str
+    assets: dict = field(default_factory=dict)  # filename -> bytes (referenced images)
 
 
 _EXTENSIONS = {
@@ -86,25 +87,59 @@ def _get_converter(do_ocr: bool, do_table_structure: bool, table_mode: str,
     )
 
 
-def _export(document, options: ConversionOptions, image_dir: Optional[Path]) -> str:
-    """Export a docling document to the requested string output."""
+def _export(document, options: ConversionOptions) -> tuple[str, dict]:
+    """Export a docling document to (content, assets).
+
+    *assets* maps ``filename -> bytes`` and is only populated for the
+    ``referenced`` image mode (md/html), where images are written as separate
+    files and the content links them as ``assets/<name>``.
+    """
 
     from docling_core.types.doc import ImageRefMode
 
     if options.output_format is OutputFormat.json:
-        return json.dumps(document.export_to_dict(), ensure_ascii=False, indent=2)
+        return json.dumps(document.export_to_dict(), ensure_ascii=False, indent=2), {}
     if options.output_format is OutputFormat.text:
-        return document.export_to_text()
+        return document.export_to_text(), {}
+
+    is_html = options.output_format is OutputFormat.html
+
+    if options.image_mode is ImageMode.referenced:
+        return _export_referenced(document, is_html)
 
     image_mode = {
         ImageMode.placeholder: ImageRefMode.PLACEHOLDER,
         ImageMode.embedded: ImageRefMode.EMBEDDED,
-        ImageMode.referenced: ImageRefMode.REFERENCED,
     }[options.image_mode]
+    if is_html:
+        return document.export_to_html(image_mode=image_mode), {}
+    return document.export_to_markdown(image_mode=image_mode), {}
 
-    if options.output_format is OutputFormat.html:
-        return document.export_to_html(image_mode=image_mode)
-    return document.export_to_markdown(image_mode=image_mode)
+
+def _export_referenced(document, is_html: bool) -> tuple[str, dict]:
+    """Save with images written to a sibling ``assets/`` dir; return both."""
+
+    import tempfile
+    from docling_core.types.doc import ImageRefMode
+
+    ext = "html" if is_html else "md"
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        out = td / f"output.{ext}"
+        assets_dir = td / "assets"
+        if is_html:
+            document.save_as_html(out, artifacts_dir=assets_dir,
+                                  image_mode=ImageRefMode.REFERENCED)
+        else:
+            document.save_as_markdown(out, artifacts_dir=assets_dir,
+                                      image_mode=ImageRefMode.REFERENCED)
+        content = out.read_text(encoding="utf-8")
+        assets: dict = {}
+        if assets_dir.is_dir():
+            for f in sorted(assets_dir.iterdir()):
+                if f.is_file():
+                    assets[f.name] = f.read_bytes()
+        return content, assets
 
 
 def convert(pdf_path: str | Path, options: ConversionOptions,
@@ -145,11 +180,11 @@ def convert(pdf_path: str | Path, options: ConversionOptions,
     except Exception as exc:  # noqa: BLE001 - normalise to ConversionError
         raise ConversionError(f"conversion failed: {exc}") from exc
 
-    image_path = Path(image_dir) if image_dir else None
-    content = _export(result.document, options, image_path)
+    content, assets = _export(result.document, options)
 
     return ConvertedDocument(
         content=content,
         output_format=options.output_format,
         suggested_extension=_EXTENSIONS[options.output_format],
+        assets=assets,
     )
