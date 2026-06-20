@@ -33,6 +33,8 @@ app/
   models.py      API・コアで共有する Pydantic モデル
   main.py        FastAPI アプリ（REST API + Web UI 配信）
   static/        Web UI（HTML/CSS/JS）
+client/python/   依存ゼロの Python クライアント（コピーして使える）
+scripts/         OpenAPI 書き出し等の補助スクリプト
 tests/           pytest
 docs/
   roadmap.md     ロードマップ（マイルストーン → issue）

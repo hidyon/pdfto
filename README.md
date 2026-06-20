@@ -137,6 +137,40 @@ curl "http://localhost:8000/api/v1/batches/<BATCH_ID>"
 | `image_mode` | 画像の扱い | `placeholder` / `embedded` / `referenced` |
 | `page_range` | 変換するページ範囲 | `[1, 5]` |
 
+## クライアント / SDK
+
+### Python クライアント（同梱・依存ゼロ）
+
+[`client/python/pdfto_client.py`](client/python/pdfto_client.py) をコピーするだけで
+使えます。
+
+```python
+from pdfto_client import PDFtoClient
+
+client = PDFtoClient("http://localhost:8000", api_key=None)  # 認証有効なら api_key
+markdown = client.convert_file("report.pdf", output_format="markdown")
+open("report.md", "wb").write(markdown)
+```
+
+詳しくは [client/python/README.md](client/python/README.md) を参照。
+
+### 他言語（OpenAPI から生成）
+
+PDFto は OpenAPI を `/openapi.json` で公開しています。スキーマを書き出して
+[openapi-generator](https://openapi-generator.tech/) で任意の言語のクライアントを
+生成できます。
+
+```bash
+# 稼働中サーバから取得
+curl http://localhost:8000/openapi.json -o openapi.json
+# またはサーバ無しで書き出し
+python scripts/export_openapi.py openapi.json
+
+# 例: TypeScript クライアントを生成
+npx @openapitools/openapi-generator-cli generate \
+    -i openapi.json -g typescript-fetch -o ./pdfto-ts-client
+```
+
 ## 設定（環境変数）
 
 | 変数 | 既定値 | 説明 |
