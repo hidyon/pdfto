@@ -42,6 +42,17 @@ class Settings:
         self.rate_window_seconds = int(
             os.environ.get("PDFTO_RATE_WINDOW_SECONDS", "60")
         )
+        # Webhooks (job completion callbacks).
+        self.webhook_secret = os.environ.get("PDFTO_WEBHOOK_SECRET") or None
+        self.webhook_timeout = int(os.environ.get("PDFTO_WEBHOOK_TIMEOUT", "10"))
+        self.webhook_allowed_hosts = {
+            h.strip() for h in os.environ.get("PDFTO_WEBHOOK_ALLOWED_HOSTS", "").split(",")
+            if h.strip()
+        }
+
+    @property
+    def webhooks_signed(self) -> bool:
+        return bool(self.webhook_secret)
 
     @property
     def auth_enabled(self) -> bool:

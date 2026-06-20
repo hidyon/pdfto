@@ -134,6 +134,9 @@ curl -OJ "http://localhost:8000/api/v1/convert?output_format=markdown&do_ocr=fal
 | `PDFTO_API_KEYS` | （空） | API キー（カンマ区切り）。設定すると `/api/v1/*` に認証必須。空なら無認証 |
 | `PDFTO_RATE_LIMIT` | `60` | レート上限（件 / ウィンドウ）。`0` 以下で無効 |
 | `PDFTO_RATE_WINDOW_SECONDS` | `60` | レート制限のウィンドウ（秒） |
+| `PDFTO_WEBHOOK_SECRET` | （空） | 設定すると Webhook 本文に HMAC-SHA256 署名を付与 |
+| `PDFTO_WEBHOOK_TIMEOUT` | `10` | Webhook 配送のタイムアウト（秒） |
+| `PDFTO_WEBHOOK_ALLOWED_HOSTS` | （空） | Webhook 送信先の許可ホスト（カンマ区切り）。空なら制限なし |
 
 ## 認証とレート制限
 
@@ -157,6 +160,31 @@ curl -H "Authorization: Bearer key-abc" ...
 > カウンタはプロセス内（インメモリ）です。複数インスタンスで共有する分散レート
 > 制限は対象外です。認証を有効にした場合、同梱 Web UI から API を叩くにはキーが
 > 必要になります（UI へのキー入力欄は将来対応）。
+
+## Webhook（変換完了通知）
+
+変換開始時に `callback_url` を指定すると、ジョブ完了（`succeeded` / `failed`）時に
+その URL へ結果が POST されます。ポーリング（`/jobs/{id}`）の代わりにイベント駆動で
+連携できます。
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/documents/<ID>/convert?callback_url=https://example.com/hook" \
+     -H 'Content-Type: application/json' -d '{"output_format":"markdown"}'
+```
+
+通知ボディ:
+
+```json
+{"event": "job.succeeded", "job": {"id": "...", "status": "succeeded", "download_url": "...", ...}}
+```
+
+`PDFTO_WEBHOOK_SECRET` を設定すると、本文の HMAC-SHA256 署名が
+`X-PDFTO-Signature: sha256=<hex>` ヘッダで付与され、受信側で真正性を検証できます。
+
+> 配送は 1 回のみ（再試行なし）・タイムアウトあり。確実性が必要な場合はポーリングを
+> 併用してください。サーバが任意 URL へ POST するため、SSRF 対策として送信先は
+> `http`/`https` に限定され、`PDFTO_WEBHOOK_ALLOWED_HOSTS` で許可ホストを絞れます。
+> 再起動で中断したジョブには通知されません。
 
 ## ログと監視
 

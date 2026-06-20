@@ -19,9 +19,11 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Optional
 
+from .config import settings
 from .db import Database
 from .logging_config import request_id_var
 from .models import Job, JobStatus, OutputFormat
+from .webhooks import deliver
 
 logger = logging.getLogger("pdfto.jobs")
 
@@ -72,8 +74,12 @@ class JobManager:
         return len(rows)
 
     def submit(self, document_id: str, output_format: OutputFormat,
-               work: Work) -> Job:
-        """Register a job and schedule *work* to run in the background."""
+               work: Work, callback_url: Optional[str] = None) -> Job:
+        """Register a job and schedule *work* to run in the background.
+
+        If *callback_url* is given, a completion webhook is POSTed there once
+        the job finishes (best-effort; failures are logged, not raised).
+        """
 
         now = time.time()
         job = Job(
@@ -92,7 +98,7 @@ class JobManager:
         rid = request_id_var.get()
         logger.info("job submitted", extra={"job_id": job.id,
                                              "document_id": document_id})
-        self._executor.submit(self._run, job.id, work, rid)
+        self._executor.submit(self._run, job.id, work, rid, callback_url)
         return job
 
     def get(self, job_id: str) -> Optional[Job]:
@@ -116,7 +122,8 @@ class JobManager:
         params.append(job_id)
         self._db.execute(f"UPDATE jobs SET {', '.join(sets)} WHERE id = ?", tuple(params))
 
-    def _run(self, job_id: str, work: Work, request_id: str = "-") -> None:
+    def _run(self, job_id: str, work: Work, request_id: str = "-",
+             callback_url: Optional[str] = None) -> None:
         request_id_var.set(request_id)
         started = time.perf_counter()
         self._update(job_id, status=JobStatus.running)
@@ -131,6 +138,22 @@ class JobManager:
             logger.exception("job failed", extra={
                 "job_id": job_id, "status": "failed",
                 "duration_ms": round((time.perf_counter() - started) * 1000)})
+
+        if callback_url:
+            self._notify(job_id, callback_url)
+
+    def _notify(self, job_id: str, callback_url: str) -> None:
+        """Deliver a completion webhook; never affects the job outcome."""
+        job = self.get(job_id)
+        if job is None:
+            return
+        event = "job.succeeded" if job.status is JobStatus.succeeded else "job.failed"
+        deliver(
+            callback_url,
+            {"event": event, "job": job.model_dump()},
+            secret=settings.webhook_secret,
+            timeout=settings.webhook_timeout,
+        )
 
     def cleanup_expired(self, ttl_seconds: float) -> list[str]:
         """Drop finished jobs whose last update is older than *ttl_seconds*."""

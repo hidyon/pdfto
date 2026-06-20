@@ -24,6 +24,7 @@ import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from typing import Optional
 
 from fastapi import Body, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.concurrency import run_in_threadpool
@@ -47,6 +48,7 @@ from .models import (
 from .questions import apply_answers, build_questions
 from .security import RateLimiter, extract_api_key
 from .storage import Storage
+from .webhooks import check_url
 
 setup_logging(settings.log_level, settings.log_format)
 logger = logging.getLogger("pdfto")
@@ -241,17 +243,27 @@ def convert_document(
         description="Flat mapping of question id to answer, e.g. "
         '{"output_format": "markdown", "do_ocr": true}.',
     ),
+    callback_url: Optional[str] = Query(
+        default=None,
+        description="Optional URL to POST the result to when the job finishes.",
+    ),
 ) -> Job:
     """Start converting a document; returns a job to poll.
 
     Conversion runs in the background (it can take seconds to minutes).  Poll
     ``GET /api/v1/jobs/{job_id}`` until the status is ``succeeded`` (then use
-    ``download_url``) or ``failed``.
+    ``download_url``) or ``failed``.  If ``callback_url`` is given, a webhook is
+    POSTed there on completion.
     """
 
     record = storage.get(doc_id)
     if record is None:
         raise HTTPException(404, "document not found")
+
+    if callback_url:
+        error = check_url(callback_url, settings.webhook_allowed_hosts)
+        if error:
+            raise HTTPException(422, error)
 
     options = apply_answers(answers or {})
 
@@ -270,7 +282,7 @@ def convert_document(
             "truncated": len(converted.content) > len(preview),
         }
 
-    return jobs.submit(doc_id, options.output_format, work)
+    return jobs.submit(doc_id, options.output_format, work, callback_url=callback_url)
 
 
 @app.get("/api/v1/jobs/{job_id}", response_model=Job, tags=["jobs"])
