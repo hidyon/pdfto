@@ -131,6 +131,32 @@ curl -OJ "http://localhost:8000/api/v1/convert?output_format=markdown&do_ocr=fal
 | `PDFTO_SWEEP_INTERVAL_SECONDS` | `300` | 期限切れを自動削除する掃除の実行間隔（秒） |
 | `PDFTO_LOG_LEVEL` | `INFO` | ログレベル（`DEBUG`/`INFO`/`WARNING` など） |
 | `PDFTO_LOG_FORMAT` | `text` | ログ出力形式（`text` / `json`） |
+| `PDFTO_API_KEYS` | （空） | API キー（カンマ区切り）。設定すると `/api/v1/*` に認証必須。空なら無認証 |
+| `PDFTO_RATE_LIMIT` | `60` | レート上限（件 / ウィンドウ）。`0` 以下で無効 |
+| `PDFTO_RATE_WINDOW_SECONDS` | `60` | レート制限のウィンドウ（秒） |
+
+## 認証とレート制限
+
+`PDFTO_API_KEYS` を設定すると、`/api/v1/*` に **API キー認証**が必須になります
+（未設定なら無認証で従来どおり）。キーは `X-API-Key` か `Authorization: Bearer` で
+送ります。`/api/health`・`/docs`・Web UI は常に開放です。
+
+```bash
+export PDFTO_API_KEYS="key-abc,key-def"
+
+curl -H "X-API-Key: key-abc" -F file=@report.pdf \
+     http://localhost:8000/api/v1/documents
+# または
+curl -H "Authorization: Bearer key-abc" ... 
+```
+
+レート制限は `PDFTO_RATE_LIMIT` 件 / `PDFTO_RATE_WINDOW_SECONDS` 秒（既定 60/60）で、
+認証有効時はキー単位、無効時はクライアント IP 単位です。超過すると `429` と
+`Retry-After` を返します（`PDFTO_RATE_LIMIT=0` で無効）。
+
+> カウンタはプロセス内（インメモリ）です。複数インスタンスで共有する分散レート
+> 制限は対象外です。認証を有効にした場合、同梱 Web UI から API を叩くにはキーが
+> 必要になります（UI へのキー入力欄は将来対応）。
 
 ## ログと監視
 

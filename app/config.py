@@ -32,6 +32,24 @@ class Settings:
         # Logging.
         self.log_level = os.environ.get("PDFTO_LOG_LEVEL", "INFO").upper()
         self.log_format = os.environ.get("PDFTO_LOG_FORMAT", "text").lower()
+        # API key auth (opt-in): comma-separated keys. Empty = auth disabled.
+        self.api_keys = {
+            k.strip() for k in os.environ.get("PDFTO_API_KEYS", "").split(",")
+            if k.strip()
+        }
+        # Rate limiting (requests per window). 0 disables.
+        self.rate_limit = int(os.environ.get("PDFTO_RATE_LIMIT", "60"))
+        self.rate_window_seconds = int(
+            os.environ.get("PDFTO_RATE_WINDOW_SECONDS", "60")
+        )
+
+    @property
+    def auth_enabled(self) -> bool:
+        return bool(self.api_keys)
+
+    @property
+    def rate_limit_enabled(self) -> bool:
+        return self.rate_limit > 0
 
     @property
     def max_upload_bytes(self) -> int:

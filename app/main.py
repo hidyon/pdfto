@@ -45,6 +45,7 @@ from .models import (
     Question,
 )
 from .questions import apply_answers, build_questions
+from .security import RateLimiter, extract_api_key
 from .storage import Storage
 
 setup_logging(settings.log_level, settings.log_format)
@@ -52,6 +53,7 @@ logger = logging.getLogger("pdfto")
 
 storage = Storage(settings.data_dir)
 jobs = JobManager(settings.max_workers, storage.db)
+rate_limiter = RateLimiter()
 
 
 @asynccontextmanager
@@ -80,6 +82,41 @@ app = FastAPI(
     description="Convert PDF documents into Markdown, HTML, JSON or text.",
     lifespan=lifespan,
 )
+
+
+def _error_response(status: int, detail: str, extra_headers: dict | None = None):
+    rid = request_id_var.get()
+    headers = {"X-Request-ID": rid}
+    if extra_headers:
+        headers.update(extra_headers)
+    return JSONResponse(status_code=status,
+                        content={"detail": detail, "request_id": rid},
+                        headers=headers)
+
+
+@app.middleware("http")
+async def auth_and_rate_limit(request: Request, call_next):
+    """Protect /api/v1/* with optional API-key auth and rate limiting.
+
+    Both are opt-in: with no API keys configured the API stays open, and
+    rate limiting is keyed by client IP instead of API key.
+    """
+    if request.url.path.startswith("/api/v1"):
+        if settings.api_keys:
+            key = extract_api_key(request.headers)
+            if key not in settings.api_keys:
+                return _error_response(401, "invalid or missing API key")
+            identity = f"key:{key}"
+        else:
+            client = request.client.host if request.client else "unknown"
+            identity = f"ip:{client}"
+        allowed, retry_after = rate_limiter.check(
+            identity, settings.rate_limit, settings.rate_window_seconds
+        )
+        if not allowed:
+            return _error_response(429, "rate limit exceeded",
+                                   {"Retry-After": str(retry_after)})
+    return await call_next(request)
 
 
 @app.middleware("http")

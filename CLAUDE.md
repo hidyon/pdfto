@@ -28,6 +28,7 @@ app/
   db.py          SQLite 永続化層（索引・ジョブを保存。スレッドセーフ）
   storage.py     アップロードと変換結果の保存（ファイル + SQLite 索引）
   logging_config.py  構造化ログ設定（リクエスト ID 付与・JSON/テキスト）
+  security.py    API キー認証とレート制限（/api/v1/* に適用）
   models.py      API・コアで共有する Pydantic モデル
   main.py        FastAPI アプリ（REST API + Web UI 配信）
   static/        Web UI（HTML/CSS/JS）
