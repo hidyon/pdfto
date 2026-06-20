@@ -26,6 +26,9 @@ class Settings:
         self.sweep_interval_seconds = int(
             os.environ.get("PDFTO_SWEEP_INTERVAL_SECONDS", "300")
         )
+        # Local directory holding pre-downloaded docling models (baked into the
+        # Docker image). When unset, docling uses its default cache.
+        self.docling_artifacts = os.environ.get("PDFTO_DOCLING_ARTIFACTS") or None
 
     @property
     def max_upload_bytes(self) -> int:

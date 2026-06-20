@@ -106,6 +106,10 @@ uvicorn app.main:app --reload      # http://localhost:8000/ ・ /docs
 
 # テスト
 pytest                              # docling をモックするためモデル DL 不要
+
+# Docker（モデルを焼き込み、初回 DL 不要）
+docker build -t pdfto .
+docker run -p 8000:8000 -v pdfto-data:/data pdfto
 ```
 
 > 初回の実変換時に docling が ML モデルを自動ダウンロードする（ネットワーク必須）。

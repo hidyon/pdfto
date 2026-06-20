@@ -37,6 +37,29 @@ uvicorn app.main:app --reload
 - API ドキュメント (Swagger): <http://localhost:8000/docs>
 - ヘルスチェック: <http://localhost:8000/api/health>
 
+## Docker で起動
+
+イメージには docling の標準モデルが**焼き込まれており**、初回変換でも
+モデルのダウンロードは不要です（OCR を使う場合の OCR モデルは対象外）。
+
+```bash
+# ビルド（torch とモデルを含むため初回は時間がかかります）
+docker build -t pdfto .
+
+# 起動（成果物は名前付きボリュームに保存）
+docker run -p 8000:8000 -v pdfto-data:/data pdfto
+```
+
+docker compose でも起動できます:
+
+```bash
+docker compose up --build
+```
+
+> 焼き込んだモデルは `/opt/docling/models` に置かれ、環境変数
+> `PDFTO_DOCLING_ARTIFACTS` で参照されます。データは `/data`（ボリューム）に保存され、
+> `PDFTO_TTL_MINUTES` に従って自動削除されます。
+
 ## API の使い方
 
 ### インタラクティブ・フロー（UI と同じ）

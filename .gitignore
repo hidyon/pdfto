@@ -5,3 +5,7 @@ __pycache__/
 data/
 *.egg-info/
 .DS_Store
+
+# Local CI/verification artifacts (environment-specific, not for the repo)
+_ci/
+Dockerfile.verify

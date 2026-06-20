@@ -14,6 +14,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
+from .config import settings
 from .models import ConversionOptions, ImageMode, OutputFormat, TableMode
 
 
@@ -40,11 +41,15 @@ _EXTENSIONS = {
 
 @lru_cache(maxsize=4)
 def _get_converter(do_ocr: bool, do_table_structure: bool, table_mode: str,
-                   generate_images: bool):
+                   generate_images: bool, artifacts_path: Optional[str] = None):
     """Build (and cache) a docling ``DocumentConverter`` for a set of options.
 
     docling converters are expensive to construct because they load models, so
     we cache them keyed by the options that actually affect the pipeline.
+
+    *artifacts_path* points at a directory of pre-downloaded models (used in the
+    Docker image so no models are fetched at runtime); ``None`` falls back to
+    docling's default cache.
     """
 
     from docling.datamodel.base_models import InputFormat
@@ -55,6 +60,8 @@ def _get_converter(do_ocr: bool, do_table_structure: bool, table_mode: str,
     from docling.document_converter import DocumentConverter, PdfFormatOption
 
     pipeline_options = PdfPipelineOptions()
+    if artifacts_path:
+        pipeline_options.artifacts_path = artifacts_path
     pipeline_options.do_ocr = do_ocr
     pipeline_options.do_table_structure = do_table_structure
     if do_table_structure:
@@ -114,6 +121,7 @@ def convert(pdf_path: str | Path, options: ConversionOptions,
             do_table_structure=options.do_table_structure,
             table_mode=options.table_mode.value,
             generate_images=generate_images,
+            artifacts_path=settings.docling_artifacts,
         )
     except ImportError as exc:  # pragma: no cover - depends on environment
         raise ConversionError(
