@@ -25,7 +25,8 @@ app/
   converter.py   docling を使った変換コア（遅延 import）
   jobs.py        変換をバックグラウンド実行するジョブ基盤（スレッドプール）
   cleanup.py     期限切れの保存物/ジョブを定期削除する掃除スレッド
-  storage.py     アップロードと変換結果の保存（ファイル + インメモリ索引）
+  db.py          SQLite 永続化層（索引・ジョブを保存。スレッドセーフ）
+  storage.py     アップロードと変換結果の保存（ファイル + SQLite 索引）
   logging_config.py  構造化ログ設定（リクエスト ID 付与・JSON/テキスト）
   models.py      API・コアで共有する Pydantic モデル
   main.py        FastAPI アプリ（REST API + Web UI 配信）

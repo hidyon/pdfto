@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 
 from app.cleanup import PeriodicCleaner
+from app.db import Database
 from app.jobs import JobManager
 from app.models import DocumentAnalysis, JobStatus, OutputFormat
 from app.storage import Storage
@@ -19,12 +20,17 @@ def _analysis() -> DocumentAnalysis:
     )
 
 
+def _age_document(s, doc_id, seconds):
+    s.db.execute("UPDATE documents SET created_at = ? WHERE id = ?",
+                 (time.time() - seconds, doc_id))
+
+
 def test_storage_removes_expired_keeps_fresh(tmp_path):
     s = Storage(tmp_path)
     old = s.create_document("old.pdf", PDF, _analysis())
     fresh = s.create_document("new.pdf", PDF, _analysis())
     # Age the first document well past the TTL.
-    old.created_at = time.time() - 1000
+    _age_document(s, old.id, 1000)
 
     removed = s.cleanup_expired(ttl_seconds=60)
 
@@ -50,17 +56,16 @@ def test_storage_removes_orphan_directories(tmp_path):
     assert not orphan.exists()
 
 
-def test_jobs_remove_expired_terminal_only():
-    mgr = JobManager(max_workers=1)
+def test_jobs_remove_expired_terminal_only(tmp_path):
+    mgr = JobManager(max_workers=1, db=Database(tmp_path / "pdfto.db"))
     done = mgr.submit("doc", OutputFormat.markdown, lambda: {"preview": "ok"})
     # Wait for it to finish, then age it.
     deadline = time.time() + 3
     while time.time() < deadline and mgr.get(done.id).status != JobStatus.succeeded:
         time.sleep(0.01)
     assert mgr.get(done.id).status == JobStatus.succeeded
-    mgr._jobs[done.id] = mgr.get(done.id).model_copy(
-        update={"updated_at": time.time() - 1000}
-    )
+    mgr._db.execute("UPDATE jobs SET updated_at = ? WHERE id = ?",
+                    (time.time() - 1000, done.id))
 
     removed = mgr.cleanup_expired(ttl_seconds=60)
     assert done.id in removed
@@ -69,9 +74,9 @@ def test_jobs_remove_expired_terminal_only():
 
 def test_periodic_cleaner_sweep_once(tmp_path):
     s = Storage(tmp_path)
-    mgr = JobManager(max_workers=1)
+    mgr = JobManager(max_workers=1, db=s.db)
     old = s.create_document("old.pdf", PDF, _analysis())
-    old.created_at = time.time() - 1000
+    _age_document(s, old.id, 1000)
 
     cleaner = PeriodicCleaner(s, mgr, ttl_seconds=60, interval_seconds=999)
     result = cleaner.sweep_once()

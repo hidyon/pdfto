@@ -18,10 +18,12 @@ from app.jobs import JobManager
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
-    # Isolate storage and a fresh single-worker job manager for each test.
+    # Isolate storage and a fresh single-worker job manager for each test,
+    # sharing one SQLite database.
     from app.storage import Storage
-    monkeypatch.setattr(main, "storage", Storage(tmp_path))
-    monkeypatch.setattr(main, "jobs", JobManager(max_workers=1))
+    store = Storage(tmp_path)
+    monkeypatch.setattr(main, "storage", store)
+    monkeypatch.setattr(main, "jobs", JobManager(max_workers=1, db=store.db))
 
     def fake_convert(pdf_path, options, image_dir=None):
         return ConvertedDocument(

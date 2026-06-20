@@ -153,12 +153,20 @@ app/
   analysis.py    PDF の軽量解析（pypdf）— 質問の出し分けに使用
   questions.py   解析結果から質問を生成し、回答をオプションへ変換
   converter.py   docling を使った変換コア（遅延 import）
-  storage.py     アップロードと変換結果の保存（ファイル + インメモリ索引）
+  jobs.py        変換をバックグラウンド実行するジョブ基盤（SQLite 永続化）
+  cleanup.py     期限切れの保存物/ジョブを定期削除する掃除スレッド
+  db.py          SQLite 永続化層（索引・ジョブ）
+  storage.py     アップロードと変換結果の保存（ファイル + SQLite 索引）
+  logging_config.py  構造化ログ設定（リクエスト ID 付与）
   models.py      API・コアで共有する Pydantic モデル
   main.py        FastAPI アプリ（REST API + Web UI 配信）
   static/        Web UI（HTML/CSS/JS）
 tests/           pytest（docling をモックした API テスト等）
 ```
+
+ドキュメント索引とジョブは `data/pdfto.db`（SQLite）に永続化され、プロセス再起動を
+跨いで保持されます。再起動で中断したジョブは起動時に `failed` として復旧されます。
+変換ファイル・アップロード PDF は `data/<id>/` に保存されます。
 
 コア（`analysis` / `questions` / `converter`）は Web 層から独立しているため、
 Python から直接 import して使うこともできます:

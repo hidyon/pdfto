@@ -51,7 +51,7 @@ setup_logging(settings.log_level, settings.log_format)
 logger = logging.getLogger("pdfto")
 
 storage = Storage(settings.data_dir)
-jobs = JobManager(settings.max_workers)
+jobs = JobManager(settings.max_workers, storage.db)
 
 
 @asynccontextmanager

@@ -1,9 +1,9 @@
 """Storage for uploaded PDFs and their conversion outputs.
 
-This is an intentionally small, dependency-free store backed by the local
-filesystem plus an in-process index.  It is sufficient for a single-instance
-deployment; swapping it for a database or object store later only requires
-re-implementing this module's small surface.
+The index (document and output metadata) is persisted in SQLite so it survives
+process restarts; the PDF and converted files themselves live on disk under
+``<root>/<doc_id>/``.  The :class:`Database` is exposed as ``.db`` so the job
+manager can share the same connection.
 """
 
 from __future__ import annotations
@@ -13,10 +13,10 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from threading import Lock
 from typing import Optional
 
-from .models import ConversionOptions, DocumentAnalysis, OutputFormat
+from .db import Database
+from .models import DocumentAnalysis, OutputFormat
 
 
 @dataclass
@@ -34,21 +34,20 @@ class DocumentRecord:
     pdf_path: Path
     analysis: DocumentAnalysis
     created_at: float = field(default_factory=time.time)
-    outputs: dict[str, OutputRecord] = field(default_factory=dict)
 
 
 class Storage:
-    """Thread-safe registry of documents and their outputs."""
+    """SQLite-backed registry of documents and their outputs."""
 
     def __init__(self, root: str | Path) -> None:
         self._root = Path(root)
         self._root.mkdir(parents=True, exist_ok=True)
-        self._docs: dict[str, DocumentRecord] = {}
-        self._lock = Lock()
+        self.db = Database(self._root / "pdfto.db")
 
     def doc_dir(self, doc_id: str) -> Path:
         return self._root / doc_id
 
+    # -- documents ---------------------------------------------------------- #
     def create_document(self, filename: str, data: bytes,
                         analysis: DocumentAnalysis) -> DocumentRecord:
         doc_id = uuid.uuid4().hex
@@ -56,20 +55,38 @@ class Storage:
         d.mkdir(parents=True, exist_ok=True)
         pdf_path = d / "source.pdf"
         pdf_path.write_bytes(data)
-        record = DocumentRecord(
-            id=doc_id,
-            filename=filename,
-            pdf_path=pdf_path,
-            analysis=analysis,
+        created_at = time.time()
+        self.db.execute(
+            "INSERT INTO documents (id, filename, pdf_path, analysis_json, created_at)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (doc_id, filename, str(pdf_path), analysis.model_dump_json(), created_at),
         )
-        with self._lock:
-            self._docs[doc_id] = record
-        return record
+        return DocumentRecord(
+            id=doc_id, filename=filename, pdf_path=pdf_path,
+            analysis=analysis, created_at=created_at,
+        )
 
     def get(self, doc_id: str) -> Optional[DocumentRecord]:
-        with self._lock:
-            return self._docs.get(doc_id)
+        row = self.db.query_one("SELECT * FROM documents WHERE id = ?", (doc_id,))
+        if row is None:
+            return None
+        return DocumentRecord(
+            id=row["id"],
+            filename=row["filename"],
+            pdf_path=Path(row["pdf_path"]),
+            analysis=DocumentAnalysis.model_validate_json(row["analysis_json"]),
+            created_at=row["created_at"],
+        )
 
+    def delete(self, doc_id: str) -> bool:
+        row = self.db.query_one("SELECT id FROM documents WHERE id = ?", (doc_id,))
+        if row is None:
+            return False
+        self.db.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
+        shutil.rmtree(self.doc_dir(doc_id), ignore_errors=True)
+        return True
+
+    # -- outputs ------------------------------------------------------------ #
     def add_output(self, doc_id: str, content: str, output_format: OutputFormat,
                    extension: str) -> OutputRecord:
         record = self.get(doc_id)
@@ -79,52 +96,53 @@ class Storage:
         filename = f"{base}.{extension}"
         out_path = self.doc_dir(doc_id) / f"output.{extension}"
         out_path.write_text(content, encoding="utf-8")
-        output = OutputRecord(
-            path=out_path, output_format=output_format, filename=filename
+        created_at = time.time()
+        self.db.execute(
+            "INSERT OR REPLACE INTO outputs "
+            "(document_id, output_format, path, filename, created_at)"
+            " VALUES (?, ?, ?, ?, ?)",
+            (doc_id, output_format.value, str(out_path), filename, created_at),
         )
-        with self._lock:
-            record.outputs[output_format.value] = output
-        return output
+        return OutputRecord(
+            path=out_path, output_format=output_format,
+            filename=filename, created_at=created_at,
+        )
 
     def get_output(self, doc_id: str, output_format: str) -> Optional[OutputRecord]:
-        record = self.get(doc_id)
-        if record is None:
+        row = self.db.query_one(
+            "SELECT * FROM outputs WHERE document_id = ? AND output_format = ?",
+            (doc_id, output_format),
+        )
+        if row is None:
             return None
-        return record.outputs.get(output_format)
+        return OutputRecord(
+            path=Path(row["path"]),
+            output_format=OutputFormat(row["output_format"]),
+            filename=row["filename"],
+            created_at=row["created_at"],
+        )
 
-    def delete(self, doc_id: str) -> bool:
-        with self._lock:
-            record = self._docs.pop(doc_id, None)
-        if record is None:
-            return False
-        shutil.rmtree(self.doc_dir(doc_id), ignore_errors=True)
-        return True
-
+    # -- cleanup ------------------------------------------------------------ #
     def cleanup_expired(self, ttl_seconds: float) -> list[str]:
-        """Delete documents older than *ttl_seconds* and orphaned directories.
-
-        Returns the ids (or directory names) that were removed.  Orphans are
-        on-disk ``data/<id>/`` directories with no index entry — typically
-        left over from a previous process run, since the index is in memory.
-        """
+        """Delete documents older than *ttl_seconds* and orphaned directories."""
 
         now = time.time()
         removed: list[str] = []
 
-        with self._lock:
-            expired = [
-                doc_id for doc_id, rec in self._docs.items()
-                if now - rec.created_at > ttl_seconds
-            ]
-        for doc_id in expired:
-            if self.delete(doc_id):
-                removed.append(doc_id)
+        rows = self.db.query(
+            "SELECT id FROM documents WHERE ? - created_at > ?", (now, ttl_seconds)
+        )
+        for row in rows:
+            if self.delete(row["id"]):
+                removed.append(row["id"])
 
-        # Sweep orphaned directories left on disk without an index entry.
-        with self._lock:
-            known = set(self._docs)
+        # Sweep orphaned directories on disk with no matching document row.
         for child in self._root.iterdir():
-            if not child.is_dir() or child.name in known:
+            if not child.is_dir():
+                continue
+            if self.db.query_one(
+                "SELECT 1 FROM documents WHERE id = ?", (child.name,)
+            ) is not None:
                 continue
             try:
                 if now - child.stat().st_mtime > ttl_seconds:
