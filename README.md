@@ -127,18 +127,28 @@ curl "http://localhost:8000/api/v1/batches/<BATCH_ID>"
 
 ### OCR と言語
 
-スキャン文書は `do_ocr` を有効にし、`ocr_languages` で言語を指定します
-（[EasyOCR の言語コード](https://www.jaided.ai/easyocr/)、例: `ja` / `en` / `ch_sim` /
-`ko` / `fr` / `de` / `es`）。対話フローでは内容に応じて言語を複数選択できます。
+スキャン文書（画像のみの PDF）は `do_ocr=true` で文字を抽出できます。対話フローでは
+スキャンらしき文書を検出すると OCR を既定で ON にして提案します。
 
 ```bash
-# ワンショットで日本語+英語 OCR
+# ワンショットで OCR（既定エンジン）
+curl -OJ "http://localhost:8000/api/v1/convert?do_ocr=true" -F file=@scanned.pdf
+
+# 言語を指定（EasyOCR、例: 日本語+英語）
 curl -OJ "http://localhost:8000/api/v1/convert?do_ocr=true&ocr_languages=ja&ocr_languages=en" \
      -F file=@scanned.pdf
 ```
 
-> OCR モデル（EasyOCR）は Docker イメージに焼き込まれておらず、初回 OCR 時に
-> ダウンロードされます（オフライン環境では別途用意が必要）。
+OCR エンジンの扱い:
+
+- **言語未指定** … 既定エンジン（RapidOCR）。Docker イメージに焼き込まれており
+  **オフラインでも動作**します。
+- **`ocr_languages` 指定** … [EasyOCR](https://www.jaided.ai/easyocr/)（言語コード:
+  `ja` / `en` / `ch_sim` / `ko` / `fr` / `de` / `es` …）。EasyOCR のモデルは
+  イメージに焼き込まれておらず、初回 OCR 時にダウンロードされます。
+
+> 検証: `PDFTO_RUN_DOCLING_TESTS=1 pytest tests/test_quality.py` で、画像のみの
+> サンプル（`samples/scanned_sample.pdf`）から OCR が本文を抽出することを確認できます。
 
 ### 画像の扱い（参照モード）
 

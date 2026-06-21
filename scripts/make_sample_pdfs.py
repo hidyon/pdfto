@@ -40,11 +40,42 @@ def make_table_sample(path: pathlib.Path) -> None:
     doc.build(elems)
 
 
+def make_scanned_sample(path: pathlib.Path) -> None:
+    """A rasterized, image-only page (no text layer) — requires OCR to read."""
+    from PIL import Image, ImageDraw, ImageFont
+
+    img = Image.new("RGB", (1240, 1754), "white")  # ~A4 @150dpi
+    draw = ImageDraw.Draw(img)
+    try:
+        font = ImageFont.truetype(
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 40)
+        bold = ImageFont.truetype(
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 56)
+    except OSError:
+        font = ImageFont.load_default()
+        bold = font
+    draw.text((90, 90), "PDFto Scan Test", fill="black", font=bold)
+    lines = [
+        "This page is a rasterized image with no text layer.",
+        "OCR must read these sentences to extract any text.",
+        "The quick brown fox jumps over the lazy dog.",
+        "Invoice number 12345 dated 2026-06-21.",
+    ]
+    y = 220
+    for line in lines:
+        draw.text((90, y), line, fill="black", font=font)
+        y += 70
+    img.save(path, "PDF", resolution=150)
+
+
 def main() -> None:
     SAMPLES.mkdir(parents=True, exist_ok=True)
-    out = SAMPLES / "table_sample.pdf"
-    make_table_sample(out)
-    print(f"wrote {out}")
+    table = SAMPLES / "table_sample.pdf"
+    make_table_sample(table)
+    print(f"wrote {table}")
+    scanned = SAMPLES / "scanned_sample.pdf"
+    make_scanned_sample(scanned)
+    print(f"wrote {scanned}")
 
 
 if __name__ == "__main__":

@@ -15,7 +15,9 @@ import pathlib
 import pytest
 
 RUN = os.environ.get("PDFTO_RUN_DOCLING_TESTS") == "1"
-SAMPLE = pathlib.Path(__file__).resolve().parents[1] / "samples" / "table_sample.pdf"
+_SAMPLES = pathlib.Path(__file__).resolve().parents[1] / "samples"
+SAMPLE = _SAMPLES / "table_sample.pdf"
+SCANNED = _SAMPLES / "scanned_sample.pdf"
 
 pytestmark = pytest.mark.skipif(
     not RUN, reason="set PDFTO_RUN_DOCLING_TESTS=1 to run real docling conversions"
@@ -40,3 +42,23 @@ def test_table_sample_converts(table_mode):
     result = convert(SAMPLE, opts)
     assert isinstance(result.content, str)
     assert result.content.strip() != ""
+
+
+def test_scanned_sample_exists():
+    assert SCANNED.is_file()
+
+
+def test_ocr_reads_scanned_pdf():
+    """OCR on an image-only PDF recovers the text; without OCR it does not."""
+    from app.converter import convert
+    from app.models import ConversionOptions, OutputFormat
+
+    with_ocr = convert(SCANNED, ConversionOptions(
+        output_format=OutputFormat.markdown, do_ocr=True))
+    text = with_ocr.content.lower()
+    assert "fox" in text
+    assert "invoice" in text
+
+    without_ocr = convert(SCANNED, ConversionOptions(
+        output_format=OutputFormat.markdown, do_ocr=False))
+    assert "fox" not in without_ocr.content.lower()

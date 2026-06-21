@@ -22,9 +22,11 @@
 - 対話フローに `table_mode` の質問（accurate/fast）を追加（表構造 ON のとき）。
 - ワンショット `POST /convert`・バッチ `POST /batches` に `table_mode` を追加。
 - 表を含む検証用サンプル PDF（`samples/table_sample.pdf`）を同梱。
-- サンプル生成スクリプト `scripts/make_sample_pdfs.py`（reportlab、開発用）。
-- 任意実行（環境変数で有効化）の実変換テストで、サンプルから Markdown 表が
-  得られることを検証。
+- スキャン（画像のみ・テキスト層なし）検証用 PDF（`samples/scanned_sample.pdf`）を
+  同梱し、**OCR が実際に文字を抽出できること**を検証。
+- サンプル生成スクリプト `scripts/make_sample_pdfs.py`（reportlab/Pillow、開発用）。
+- 任意実行（環境変数で有効化）の実変換テストで、表サンプルの変換成功と、
+  スキャンサンプルからの OCR 文字抽出を検証。
 
 ### やらないこと（非スコープ）
 - docling 内部の表抽出アルゴリズム自体の改変（エンジン任せ）。
@@ -47,6 +49,12 @@
 > また合成 PDF は ML の表検出が安定しない。そのため検証テストは「主要セルの厳密一致」や
 > 「Markdown 表の生成」を**ハードな合否条件にはしない**（モデル/PDF 依存のため）。
 > 表構造の精度は実文書での手動確認に委ね、ここではパイプラインが壊れていないことを担保する。
+>
+> **OCR の実機確認:** 画像のみの `samples/scanned_sample.pdf` を `do_ocr=True` で
+> 変換すると本文（"fox" や "Invoice number 12345" 等）が抽出され、`do_ocr=False`
+> では抽出されないことを確認済み。OCR は機能している。なお `table_sample.pdf` が
+> Markdown で `<!-- image -->` になるのは、全面罫線の表がページごと「画像」と
+> 分類されるためで、OCR の不具合ではない（テキストはドキュメントモデル上は認識される）。
 
 ### 非機能要件
 - 既定（環境変数未設定）の `pytest` はモデル DL 不要のまま（実変換テストは skip）。
