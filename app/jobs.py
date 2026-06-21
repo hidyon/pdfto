@@ -54,9 +54,10 @@ def _row_to_job(row) -> Job:
 class JobManager:
     """Executor + SQLite-backed registry for conversion jobs."""
 
-    def __init__(self, max_workers: int, db: Database) -> None:
+    def __init__(self, max_workers: int, db: Database, dispatcher=None) -> None:
         self._executor = ThreadPoolExecutor(max_workers=max_workers)
         self._db = db
+        self._dispatcher = dispatcher
         self.recover_interrupted()
 
     def recover_interrupted(self) -> int:
@@ -151,6 +152,11 @@ class JobManager:
         job = self.get(job_id)
         if job is None:
             return
+        if self._dispatcher is not None:
+            # Persisted, retrying delivery.
+            self._dispatcher.enqueue(job, callback_url)
+            return
+        # Fallback: best-effort single attempt (no dispatcher configured).
         event = "job.succeeded" if job.status is JobStatus.succeeded else "job.failed"
         deliver(
             callback_url,

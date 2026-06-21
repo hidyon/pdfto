@@ -52,13 +52,21 @@ from .models import (
 from .questions import apply_answers, build_questions
 from .security import RateLimiter, extract_api_key
 from .storage import Storage
-from .webhooks import check_url
+from .webhooks import WebhookDispatcher, check_url
 
 setup_logging(settings.log_level, settings.log_format)
 logger = logging.getLogger("pdfto")
 
 storage = Storage(settings.data_dir)
-jobs = JobManager(settings.max_workers, storage.db)
+webhook_dispatcher = WebhookDispatcher(
+    storage.db,
+    secret=settings.webhook_secret,
+    timeout=settings.webhook_timeout,
+    max_attempts=settings.webhook_max_attempts,
+    base_seconds=settings.webhook_retry_base_seconds,
+    sweep_seconds=settings.webhook_sweep_seconds,
+)
+jobs = JobManager(settings.max_workers, storage.db, dispatcher=webhook_dispatcher)
 rate_limiter = RateLimiter()
 
 
@@ -74,11 +82,13 @@ async def lifespan(app: FastAPI):
             storage, jobs, settings.ttl_seconds, settings.sweep_interval_seconds
         )
         cleaner.start()
+    webhook_dispatcher.start()
     try:
         yield
     finally:
         if cleaner is not None:
             cleaner.stop()
+        webhook_dispatcher.stop()
         logger.info("pdfto shutting down")
 
 
@@ -310,6 +320,14 @@ def get_job(job_id: str) -> Job:
     if job is None:
         raise HTTPException(404, "job not found")
     return job
+
+
+@app.get("/api/v1/jobs/{job_id}/deliveries", tags=["jobs"])
+def get_job_deliveries(job_id: str) -> list[dict]:
+    """List the webhook delivery attempts recorded for a job."""
+    if jobs.get(job_id) is None:
+        raise HTTPException(404, "job not found")
+    return webhook_dispatcher.list_for_job(job_id)
 
 
 @app.get("/api/v1/documents/{doc_id}/download", tags=["documents"])

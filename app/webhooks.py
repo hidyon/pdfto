@@ -14,7 +14,10 @@ import hashlib
 import hmac
 import json
 import logging
+import time
 import urllib.request
+import uuid
+from threading import Event, Thread
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -60,3 +63,114 @@ def deliver(url: str, payload: dict, *, secret: Optional[str] = None,
     except Exception as exc:  # noqa: BLE001 - never propagate delivery errors
         logger.warning("webhook delivery failed: %s", exc, extra={"url": url})
         return False
+
+
+class WebhookDispatcher:
+    """Persisted, retrying webhook delivery backed by SQLite.
+
+    A completed job's notification is recorded in ``webhook_deliveries`` and
+    attempted immediately; failures are retried with exponential backoff by a
+    background sweep thread, so a briefly-unavailable receiver doesn't lose the
+    notification (and deliveries survive a restart).
+    """
+
+    def __init__(self, db, *, secret: Optional[str] = None, timeout: float = 10,
+                 max_attempts: int = 5, base_seconds: float = 10,
+                 sweep_seconds: float = 30) -> None:
+        self._db = db
+        self._secret = secret
+        self._timeout = timeout
+        self._max_attempts = max_attempts
+        self._base = base_seconds
+        self._interval = sweep_seconds
+        self._stop = Event()
+        self._thread: Thread | None = None
+
+    # -- public ------------------------------------------------------------- #
+    def enqueue(self, job, url: str) -> str:
+        """Record a delivery for *job* to *url* and attempt it once now."""
+        event = "job.succeeded" if job.status.value == "succeeded" else "job.failed"
+        payload = json.dumps({"event": event, "job": job.model_dump()},
+                             ensure_ascii=False, default=str)
+        now = time.time()
+        delivery_id = uuid.uuid4().hex
+        self._db.execute(
+            "INSERT INTO webhook_deliveries (id, job_id, url, event, payload,"
+            " status, attempts, max_attempts, next_attempt_at, created_at, updated_at)"
+            " VALUES (?, ?, ?, ?, ?, 'pending', 0, ?, ?, ?, ?)",
+            (delivery_id, job.id, url, event, payload, self._max_attempts, now, now, now),
+        )
+        row = self._db.query_one(
+            "SELECT * FROM webhook_deliveries WHERE id = ?", (delivery_id,)
+        )
+        self._attempt(row)
+        return delivery_id
+
+    def sweep_once(self) -> int:
+        """Attempt all due pending deliveries; return how many were tried."""
+        now = time.time()
+        rows = self._db.query(
+            "SELECT * FROM webhook_deliveries WHERE status = 'pending'"
+            " AND (next_attempt_at IS NULL OR next_attempt_at <= ?)",
+            (now,),
+        )
+        for row in rows:
+            try:
+                self._attempt(row)
+            except Exception:  # noqa: BLE001 - keep sweeping other deliveries
+                logger.exception("webhook sweep failed", extra={"id": row["id"]})
+        return len(rows)
+
+    def list_for_job(self, job_id: str) -> list[dict]:
+        rows = self._db.query(
+            "SELECT * FROM webhook_deliveries WHERE job_id = ? ORDER BY created_at",
+            (job_id,),
+        )
+        return [dict(r) for r in rows]
+
+    # -- internals ---------------------------------------------------------- #
+    def _attempt(self, row) -> None:
+        attempts = row["attempts"] + 1
+        ok = deliver(row["url"], json.loads(row["payload"]),
+                     secret=self._secret, timeout=self._timeout)
+        now = time.time()
+        if ok:
+            self._db.execute(
+                "UPDATE webhook_deliveries SET status='delivered', attempts=?,"
+                " next_attempt_at=NULL, last_error=NULL, updated_at=? WHERE id=?",
+                (attempts, now, row["id"]),
+            )
+            return
+        if attempts >= row["max_attempts"]:
+            self._db.execute(
+                "UPDATE webhook_deliveries SET status='failed', attempts=?,"
+                " next_attempt_at=NULL, last_error=?, updated_at=? WHERE id=?",
+                (attempts, "delivery failed", now, row["id"]),
+            )
+            return
+        delay = self._base * (2 ** (attempts - 1))
+        self._db.execute(
+            "UPDATE webhook_deliveries SET status='pending', attempts=?,"
+            " next_attempt_at=?, last_error=?, updated_at=? WHERE id=?",
+            (attempts, now + delay, "delivery failed", now, row["id"]),
+        )
+
+    def _loop(self) -> None:
+        while not self._stop.wait(self._interval):
+            try:
+                self.sweep_once()
+            except Exception:  # noqa: BLE001
+                logger.exception("webhook dispatcher loop error")
+
+    def start(self) -> None:
+        if self._thread is not None:
+            return
+        self._stop.clear()
+        self._thread = Thread(target=self._loop, name="pdfto-webhooks", daemon=True)
+        self._thread.start()
+
+    def stop(self) -> None:
+        self._stop.set()
+        if self._thread is not None:
+            self._thread.join(timeout=2)
+            self._thread = None

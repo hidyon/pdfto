@@ -237,6 +237,9 @@ npx @openapitools/openapi-generator-cli generate \
 | `PDFTO_WEBHOOK_SECRET` | （空） | 設定すると Webhook 本文に HMAC-SHA256 署名を付与 |
 | `PDFTO_WEBHOOK_TIMEOUT` | `10` | Webhook 配送のタイムアウト（秒） |
 | `PDFTO_WEBHOOK_ALLOWED_HOSTS` | （空） | Webhook 送信先の許可ホスト（カンマ区切り）。空なら制限なし |
+| `PDFTO_WEBHOOK_MAX_ATTEMPTS` | `5` | Webhook 配送の最大試行回数 |
+| `PDFTO_WEBHOOK_RETRY_BASE_SECONDS` | `10` | 再試行バックオフの基準秒（10/20/40…） |
+| `PDFTO_WEBHOOK_SWEEP_SECONDS` | `30` | 再試行スイープの実行間隔（秒） |
 | `PDFTO_DOCLING_ARTIFACTS` | （空） | docling モデルのディレクトリ。設定すると変換をオフライン実行（Docker では既定で設定済み） |
 | `PDFTO_EASYOCR_MODELS` | （空） | EasyOCR モデルのディレクトリ。設定すると言語 OCR をオフライン実行（Docker では既定で設定済み） |
 | `PDFTO_ANTHROPIC_API_KEY` | （空） | Anthropic API キー。設定すると LLM 整形が有効化（`ANTHROPIC_API_KEY` でも可） |
@@ -287,10 +290,18 @@ curl -X POST "http://localhost:8000/api/v1/documents/<ID>/convert?callback_url=h
 `PDFTO_WEBHOOK_SECRET` を設定すると、本文の HMAC-SHA256 署名が
 `X-PDFTO-Signature: sha256=<hex>` ヘッダで付与され、受信側で真正性を検証できます。
 
-> 配送は 1 回のみ（再試行なし）・タイムアウトあり。確実性が必要な場合はポーリングを
-> 併用してください。サーバが任意 URL へ POST するため、SSRF 対策として送信先は
-> `http`/`https` に限定され、`PDFTO_WEBHOOK_ALLOWED_HOSTS` で許可ホストを絞れます。
-> 再起動で中断したジョブには通知されません。
+配送は **SQLite に永続化**され、失敗時は指数バックオフで**自動再試行**します
+（`PDFTO_WEBHOOK_MAX_ATTEMPTS` 回、基準 `PDFTO_WEBHOOK_RETRY_BASE_SECONDS` 秒）。
+配送履歴は次の API で確認できます。
+
+```bash
+curl "http://localhost:8000/api/v1/jobs/<JOB_ID>/deliveries"
+# → [{"url":"...","status":"delivered","attempts":1,"last_error":null, ...}]
+```
+
+> サーバが任意 URL へ POST するため、SSRF 対策として送信先は `http`/`https` に限定され、
+> `PDFTO_WEBHOOK_ALLOWED_HOSTS` で許可ホストを絞れます。再試行で受信側に重複が届き得る
+> ため、受信側は冪等に実装してください。
 
 ## LLM による任意整形（オプション）
 

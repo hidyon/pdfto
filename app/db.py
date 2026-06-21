@@ -54,6 +54,21 @@ CREATE TABLE IF NOT EXISTS batches (
     created_at REAL NOT NULL,
     count      INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS webhook_deliveries (
+    id              TEXT PRIMARY KEY,
+    job_id          TEXT NOT NULL,
+    url             TEXT NOT NULL,
+    event           TEXT NOT NULL,
+    payload         TEXT NOT NULL,
+    status          TEXT NOT NULL,
+    attempts        INTEGER NOT NULL DEFAULT 0,
+    max_attempts    INTEGER NOT NULL,
+    next_attempt_at REAL,
+    last_error      TEXT,
+    created_at      REAL NOT NULL,
+    updated_at      REAL NOT NULL
+);
 """
 
 

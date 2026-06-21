@@ -21,9 +21,14 @@ def client(tmp_path, monkeypatch):
     # Isolate storage and a fresh single-worker job manager for each test,
     # sharing one SQLite database.
     from app.storage import Storage
+    from app.webhooks import WebhookDispatcher
     store = Storage(tmp_path)
     monkeypatch.setattr(main, "storage", store)
-    monkeypatch.setattr(main, "jobs", JobManager(max_workers=1, db=store.db))
+    dispatcher = WebhookDispatcher(store.db, max_attempts=3, base_seconds=10,
+                                   sweep_seconds=999)
+    monkeypatch.setattr(main, "webhook_dispatcher", dispatcher)
+    monkeypatch.setattr(main, "jobs",
+                        JobManager(max_workers=1, db=store.db, dispatcher=dispatcher))
 
     def fake_convert(pdf_path, options, image_dir=None):
         return ConvertedDocument(
@@ -251,6 +256,27 @@ def test_referenced_images_assets_and_zip(client, text_pdf, monkeypatch):
     names = zipfile.ZipFile(io.BytesIO(z.content)).namelist()
     assert "doc.md" in names
     assert "assets/img_000.png" in names
+
+
+def test_webhook_delivery_recorded(client, text_pdf, monkeypatch):
+    from app import webhooks
+    monkeypatch.setattr(webhooks, "deliver", lambda *a, **k: True)
+
+    up = client.post("/api/v1/documents",
+                     files={"file": ("doc.pdf", text_pdf, "application/pdf")})
+    doc_id = up.json()["id"]
+    job = client.post(
+        f"/api/v1/documents/{doc_id}/convert?callback_url=https://example.com/hook",
+        json={"output_format": "markdown"})
+    job_id = job.json()["id"]
+    _wait_for_job(client, job_id)
+
+    r = client.get(f"/api/v1/jobs/{job_id}/deliveries")
+    assert r.status_code == 200
+    deliveries = r.json()
+    assert len(deliveries) == 1
+    assert deliveries[0]["status"] == "delivered"
+    assert deliveries[0]["url"] == "https://example.com/hook"
 
 
 def test_request_id_header_present_and_echoed(client):

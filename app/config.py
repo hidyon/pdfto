@@ -63,6 +63,16 @@ class Settings:
             h.strip() for h in os.environ.get("PDFTO_WEBHOOK_ALLOWED_HOSTS", "").split(",")
             if h.strip()
         }
+        # Webhook delivery retry (persisted, exponential backoff).
+        self.webhook_max_attempts = int(
+            os.environ.get("PDFTO_WEBHOOK_MAX_ATTEMPTS", "5")
+        )
+        self.webhook_retry_base_seconds = int(
+            os.environ.get("PDFTO_WEBHOOK_RETRY_BASE_SECONDS", "10")
+        )
+        self.webhook_sweep_seconds = int(
+            os.environ.get("PDFTO_WEBHOOK_SWEEP_SECONDS", "30")
+        )
 
     @property
     def webhooks_signed(self) -> bool:
