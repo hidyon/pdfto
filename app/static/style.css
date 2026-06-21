@@ -72,6 +72,12 @@ a { color: var(--accent); }
   border: 1px solid var(--card-border); border-radius: 8px;
   padding: 8px 10px; font-size: 0.95rem; width: 100%; max-width: 320px;
 }
+.field textarea {
+  background: var(--bg); color: var(--text);
+  border: 1px solid var(--card-border); border-radius: 8px;
+  padding: 8px 10px; font-size: 0.95rem; width: 100%; resize: vertical;
+  font-family: inherit;
+}
 .field .toggle { display: flex; align-items: center; gap: 10px; }
 .field .toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
 .range-row { display: flex; align-items: center; gap: 10px; }

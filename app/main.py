@@ -37,6 +37,7 @@ from .cleanup import PeriodicCleaner
 from .config import settings
 from .converter import ConversionError, convert
 from .jobs import JobManager
+from . import llm
 from .logging_config import request_id_var, setup_logging
 from .models import (
     BatchItem,
@@ -187,21 +188,30 @@ def _analyze_bytes(data: bytes) -> DocumentAnalysis:
         return analyze_pdf(tmp.name)
 
 
+def _apply_llm(content: str, options) -> str:
+    """Optionally post-process the converted text with an LLM (opt-in)."""
+    if (options.llm_instruction and settings.llm_enabled
+            and options.output_format in (OutputFormat.markdown, OutputFormat.text)):
+        return llm.transform(content, options.llm_instruction)
+    return content
+
+
 def _conversion_work(doc_id: str, pdf_path, options):
     """Build the job's work closure: convert, persist, return result fields."""
     def work() -> dict:
         converted = convert(pdf_path, options, storage.doc_dir(doc_id))
+        content = _apply_llm(converted.content, options)
         output = storage.add_output(
-            doc_id, converted.content, converted.output_format,
+            doc_id, content, converted.output_format,
             converted.suggested_extension, assets=converted.assets,
         )
-        preview = converted.content[: settings.preview_chars]
+        preview = content[: settings.preview_chars]
         return {
             "download_url": f"/api/v1/documents/{doc_id}/download"
                             f"?format={converted.output_format.value}",
             "filename": output.filename,
             "preview": preview,
-            "truncated": len(converted.content) > len(preview),
+            "truncated": len(content) > len(preview),
         }
     return work
 
@@ -371,6 +381,7 @@ async def convert_oneshot(
     do_table_structure: bool = Query(default=True),
     table_mode: TableMode = Query(default=TableMode.accurate),
     ocr_languages: list[str] = Query(default=[]),
+    llm_instruction: Optional[str] = Query(default=None),
 ) -> FileResponse:
     """Upload and convert in a single request (no questions).
 
@@ -391,6 +402,7 @@ async def convert_oneshot(
         "do_table_structure": do_table_structure,
         "table_mode": table_mode.value,
         "ocr_languages": ocr_languages,
+        "llm_instruction": llm_instruction,
     })
     try:
         converted = await run_in_threadpool(
@@ -399,8 +411,13 @@ async def convert_oneshot(
     except ConversionError as exc:
         raise HTTPException(422, str(exc)) from exc
 
+    try:
+        content = await run_in_threadpool(_apply_llm, converted.content, options)
+    except llm.LLMError as exc:
+        raise HTTPException(502, str(exc)) from exc
+
     output = storage.add_output(
-        record.id, converted.content, converted.output_format,
+        record.id, content, converted.output_format,
         converted.suggested_extension, assets=converted.assets,
     )
     return FileResponse(

@@ -119,6 +119,13 @@ function renderQuestions(doc) {
         wrap.appendChild(label);
       }
       field.appendChild(wrap);
+    } else if (q.type === "text") {
+      const ta = document.createElement("textarea");
+      ta.dataset.qid = q.id;
+      ta.rows = 2;
+      ta.placeholder = "例: 日本語に翻訳 / 要約";
+      if (q.default) ta.value = q.default;
+      field.appendChild(ta);
     } else if (q.type === "range") {
       const wrap = document.createElement("div");
       wrap.className = "range-row";

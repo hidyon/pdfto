@@ -56,6 +56,11 @@ class ConversionOptions(BaseModel):
     )
     table_mode: TableMode = TableMode.accurate
     image_mode: ImageMode = ImageMode.placeholder
+    llm_instruction: Optional[str] = Field(
+        default=None,
+        description="Optional natural-language instruction to post-process the "
+        "converted text with an LLM (e.g. 'summarize', 'translate to English').",
+    )
     page_start: Optional[int] = Field(
         default=None, ge=1, description="First page to convert (1-based, inclusive)."
     )

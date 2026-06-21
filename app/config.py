@@ -47,6 +47,15 @@ class Settings:
         self.rate_window_seconds = int(
             os.environ.get("PDFTO_RATE_WINDOW_SECONDS", "60")
         )
+        # LLM post-processing (opt-in; needs an Anthropic API key).
+        self.anthropic_api_key = (
+            os.environ.get("PDFTO_ANTHROPIC_API_KEY")
+            or os.environ.get("ANTHROPIC_API_KEY")
+            or None
+        )
+        self.llm_model = os.environ.get("PDFTO_LLM_MODEL", "claude-opus-4-8")
+        self.llm_max_tokens = int(os.environ.get("PDFTO_LLM_MAX_TOKENS", "16000"))
+        self.llm_timeout = int(os.environ.get("PDFTO_LLM_TIMEOUT", "120"))
         # Webhooks (job completion callbacks).
         self.webhook_secret = os.environ.get("PDFTO_WEBHOOK_SECRET") or None
         self.webhook_timeout = int(os.environ.get("PDFTO_WEBHOOK_TIMEOUT", "10"))
@@ -58,6 +67,10 @@ class Settings:
     @property
     def webhooks_signed(self) -> bool:
         return bool(self.webhook_secret)
+
+    @property
+    def llm_enabled(self) -> bool:
+        return bool(self.anthropic_api_key)
 
     @property
     def auth_enabled(self) -> bool:

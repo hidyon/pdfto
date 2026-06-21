@@ -128,6 +128,19 @@ def build_questions(analysis: DocumentAnalysis) -> list[Question]:
             )
         )
 
+    # LLM post-processing — only when the feature is configured.
+    from .config import settings
+    if settings.llm_enabled:
+        questions.append(
+            Question(
+                id="llm_instruction",
+                type="text",
+                prompt="変換後にAIで整形しますか？（任意の指示）",
+                help="例: 「日本語に翻訳」「要約」「見出しを整える」。空欄ならそのまま出力します。",
+                default="",
+            )
+        )
+
     return questions
 
 
@@ -146,6 +159,10 @@ def apply_answers(answers: dict) -> ConversionOptions:
     langs = answers.get("ocr_languages")
     if isinstance(langs, (list, tuple)):
         data["ocr_languages"] = [str(x) for x in langs]
+
+    instruction = answers.get("llm_instruction")
+    if isinstance(instruction, str) and instruction.strip():
+        data["llm_instruction"] = instruction.strip()
 
     page_range = answers.get("page_range")
     if isinstance(page_range, (list, tuple)) and len(page_range) == 2:

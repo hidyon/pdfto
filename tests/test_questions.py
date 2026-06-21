@@ -92,3 +92,21 @@ def test_apply_answers_maps_table_mode():
     from app.models import TableMode
     opts = apply_answers({"table_mode": "fast"})
     assert opts.table_mode is TableMode.fast
+
+
+def test_llm_question_only_when_enabled(monkeypatch):
+    from app.config import settings
+    monkeypatch.setattr(settings, "anthropic_api_key", None)
+    assert "llm_instruction" not in {q.id for q in build_questions(_analysis())}
+
+    monkeypatch.setattr(settings, "anthropic_api_key", "key")
+    qs = {q.id: q for q in build_questions(_analysis())}
+    assert "llm_instruction" in qs
+    assert qs["llm_instruction"].type == "text"
+
+
+def test_apply_answers_maps_llm_instruction():
+    opts = apply_answers({"llm_instruction": "  summarize  "})
+    assert opts.llm_instruction == "summarize"
+    # Empty/whitespace is ignored.
+    assert apply_answers({"llm_instruction": "   "}).llm_instruction is None

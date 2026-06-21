@@ -237,6 +237,10 @@ npx @openapitools/openapi-generator-cli generate \
 | `PDFTO_WEBHOOK_TIMEOUT` | `10` | Webhook 配送のタイムアウト（秒） |
 | `PDFTO_WEBHOOK_ALLOWED_HOSTS` | （空） | Webhook 送信先の許可ホスト（カンマ区切り）。空なら制限なし |
 | `PDFTO_EASYOCR_MODELS` | （空） | EasyOCR モデルのディレクトリ。設定すると言語 OCR をオフライン実行（Docker では既定で設定済み） |
+| `PDFTO_ANTHROPIC_API_KEY` | （空） | Anthropic API キー。設定すると LLM 整形が有効化（`ANTHROPIC_API_KEY` でも可） |
+| `PDFTO_LLM_MODEL` | `claude-opus-4-8` | LLM 整形に使うモデル（コスト優先なら `claude-sonnet-4-6` 等） |
+| `PDFTO_LLM_MAX_TOKENS` | `16000` | LLM 出力の最大トークン |
+| `PDFTO_LLM_TIMEOUT` | `120` | LLM リクエストのタイムアウト（秒） |
 
 ## 認証とレート制限
 
@@ -285,6 +289,26 @@ curl -X POST "http://localhost:8000/api/v1/documents/<ID>/convert?callback_url=h
 > 併用してください。サーバが任意 URL へ POST するため、SSRF 対策として送信先は
 > `http`/`https` に限定され、`PDFTO_WEBHOOK_ALLOWED_HOSTS` で許可ホストを絞れます。
 > 再起動で中断したジョブには通知されません。
+
+## LLM による任意整形（オプション）
+
+`PDFTO_ANTHROPIC_API_KEY`（または `ANTHROPIC_API_KEY`）を設定すると、変換後の
+Markdown / テキストに**任意の指示**（要約・翻訳・整形など）を Claude で適用できます。
+未設定なら機能は無効で、docling の出力をそのまま返します（従来挙動）。
+
+```bash
+export PDFTO_ANTHROPIC_API_KEY="sk-ant-..."
+
+# ワンショットで「英語に翻訳」
+curl -OJ "http://localhost:8000/api/v1/convert?llm_instruction=Translate%20to%20English" \
+     -F file=@report.pdf
+```
+
+対話フローでは、機能有効時に「変換後にAIで整形しますか？」という自由記述の質問が
+追加されます。既定モデルは `claude-opus-4-8`（`PDFTO_LLM_MODEL` で変更可）。
+
+> 整形を使うと、変換後テキストが Anthropic API に送信されます（オプトイン）。
+> 対象は Markdown / テキスト出力のみ。失敗時はジョブが `failed` になります。
 
 ## ログと監視
 

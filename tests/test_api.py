@@ -112,6 +112,58 @@ def test_unknown_job_404(client):
     assert r.status_code == 404
 
 
+def test_llm_postprocess_applied(client, text_pdf, monkeypatch):
+    from app.config import settings
+    monkeypatch.setattr(settings, "anthropic_api_key", "key")
+    monkeypatch.setattr(main.llm, "transform",
+                        lambda content, instruction, **kw: f"LLM[{instruction}]")
+
+    up = client.post("/api/v1/documents",
+                     files={"file": ("doc.pdf", text_pdf, "application/pdf")})
+    doc_id = up.json()["id"]
+    job = client.post(f"/api/v1/documents/{doc_id}/convert",
+                      json={"output_format": "markdown", "llm_instruction": "summarize"})
+    final = _wait_for_job(client, job.json()["id"])
+    assert final["status"] == "succeeded"
+    assert final["preview"] == "LLM[summarize]"
+
+
+def test_llm_failure_marks_job_failed(client, text_pdf, monkeypatch):
+    from app.config import settings
+    from app.llm import LLMError
+    monkeypatch.setattr(settings, "anthropic_api_key", "key")
+
+    def boom(content, instruction, **kw):
+        raise LLMError("llm down")
+    monkeypatch.setattr(main.llm, "transform", boom)
+
+    up = client.post("/api/v1/documents",
+                     files={"file": ("doc.pdf", text_pdf, "application/pdf")})
+    doc_id = up.json()["id"]
+    job = client.post(f"/api/v1/documents/{doc_id}/convert",
+                      json={"llm_instruction": "summarize"})
+    final = _wait_for_job(client, job.json()["id"])
+    assert final["status"] == "failed"
+    assert "llm down" in final["error"]
+
+
+def test_llm_ignored_when_disabled(client, text_pdf, monkeypatch):
+    from app.config import settings
+    monkeypatch.setattr(settings, "anthropic_api_key", None)
+    # transform must NOT be called when disabled.
+    monkeypatch.setattr(main.llm, "transform",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("called")))
+
+    up = client.post("/api/v1/documents",
+                     files={"file": ("doc.pdf", text_pdf, "application/pdf")})
+    doc_id = up.json()["id"]
+    job = client.post(f"/api/v1/documents/{doc_id}/convert",
+                      json={"llm_instruction": "summarize"})
+    final = _wait_for_job(client, job.json()["id"])
+    assert final["status"] == "succeeded"
+    assert "# Converted" in final["preview"]
+
+
 def test_batch_convert_flow(client, text_pdf):
     files = [
         ("files", ("a.pdf", text_pdf, "application/pdf")),

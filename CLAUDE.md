@@ -30,6 +30,7 @@ app/
   logging_config.py  構造化ログ設定（リクエスト ID 付与・JSON/テキスト）
   security.py    API キー認証とレート制限（/api/v1/* に適用）
   webhooks.py    変換完了の Webhook 配送（署名・SSRF 緩和）
+  llm.py         変換後テキストの LLM 整形（任意・Anthropic SDK 遅延 import）
   models.py      API・コアで共有する Pydantic モデル
   main.py        FastAPI アプリ（REST API + Web UI 配信）
   static/        Web UI（HTML/CSS/JS）
