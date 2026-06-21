@@ -113,7 +113,10 @@ pip install pytest        # テスト用
 uvicorn app.main:app --reload      # http://localhost:8000/ ・ /docs
 
 # テスト
-pytest                              # docling をモックするためモデル DL 不要
+pytest                              # docling/anthropic をモックするためモデル DL 不要
+
+# 実機テスト（重い・任意）: 実 docling 変換まで含めて検証
+PDFTO_RUN_DOCLING_TESTS=1 pytest tests/test_quality.py
 
 # Docker（モデルを焼き込み、初回 DL 不要）
 docker build -t pdfto .
@@ -121,7 +124,12 @@ docker run -p 8000:8000 -v pdfto-data:/data pdfto
 ```
 
 > 初回の実変換時に docling が ML モデルを自動ダウンロードする（ネットワーク必須）。
-> テストは docling をモックしているので、モデルなしで実行できる。
+> 既定のテストは docling/anthropic をモックしているので、モデルなしで実行できる。
+
+**重い検証は opt-in に分離する**（M3 ふりかえりで決定）。docling の実変換や OCR など、
+モデル DL・実 API を要する検証は `PDFTO_RUN_DOCLING_TESTS=1` でのみ走る opt-in テスト
+（`tests/test_quality.py`）に置き、既定 `pytest` はモック前提で軽く保つ。LLM 整形など
+外部 API 呼び出しも同様にモックで検証し、実呼び出しは手動/専用環境に委ねる。
 
 ### 規約・注意点
 

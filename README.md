@@ -182,6 +182,7 @@ curl -O "http://localhost:8000/api/v1/documents/<ID>/assets/<filename>"
 | `table_mode` | 表抽出の精度（速度との兼ね合い） | `accurate` / `fast` |
 | `image_mode` | 画像の扱い | `placeholder` / `embedded` / `referenced` |
 | `page_range` | 変換するページ範囲 | `[1, 5]` |
+| `llm_instruction` | 変換後に LLM で整形（要 API キー） | `"日本語に翻訳"` |
 
 ## クライアント / SDK
 
@@ -236,6 +237,7 @@ npx @openapitools/openapi-generator-cli generate \
 | `PDFTO_WEBHOOK_SECRET` | （空） | 設定すると Webhook 本文に HMAC-SHA256 署名を付与 |
 | `PDFTO_WEBHOOK_TIMEOUT` | `10` | Webhook 配送のタイムアウト（秒） |
 | `PDFTO_WEBHOOK_ALLOWED_HOSTS` | （空） | Webhook 送信先の許可ホスト（カンマ区切り）。空なら制限なし |
+| `PDFTO_DOCLING_ARTIFACTS` | （空） | docling モデルのディレクトリ。設定すると変換をオフライン実行（Docker では既定で設定済み） |
 | `PDFTO_EASYOCR_MODELS` | （空） | EasyOCR モデルのディレクトリ。設定すると言語 OCR をオフライン実行（Docker では既定で設定済み） |
 | `PDFTO_ANTHROPIC_API_KEY` | （空） | Anthropic API キー。設定すると LLM 整形が有効化（`ANTHROPIC_API_KEY` でも可） |
 | `PDFTO_LLM_MODEL` | `claude-opus-4-8` | LLM 整形に使うモデル（コスト優先なら `claude-sonnet-4-6` 等） |
@@ -331,14 +333,21 @@ app/
   analysis.py    PDF の軽量解析（pypdf）— 質問の出し分けに使用
   questions.py   解析結果から質問を生成し、回答をオプションへ変換
   converter.py   docling を使った変換コア（遅延 import）
+  llm.py         変換後テキストの LLM 整形（任意・Anthropic SDK 遅延 import）
   jobs.py        変換をバックグラウンド実行するジョブ基盤（SQLite 永続化）
   cleanup.py     期限切れの保存物/ジョブを定期削除する掃除スレッド
   db.py          SQLite 永続化層（索引・ジョブ）
   storage.py     アップロードと変換結果の保存（ファイル + SQLite 索引）
   logging_config.py  構造化ログ設定（リクエスト ID 付与）
+  security.py    API キー認証とレート制限（/api/v1/* に適用）
+  webhooks.py    変換完了の Webhook 配送（署名・SSRF 緩和）
+  config.py      設定（環境変数 PDFTO_* を集約）
   models.py      API・コアで共有する Pydantic モデル
   main.py        FastAPI アプリ（REST API + Web UI 配信）
   static/        Web UI（HTML/CSS/JS）
+client/python/   依存ゼロの Python クライアント（コピーして使える）
+scripts/         OpenAPI 書き出し・サンプル/モデル取得の補助スクリプト
+samples/         変換の検証用サンプル PDF
 tests/           pytest（docling をモックした API テスト等）
 ```
 
