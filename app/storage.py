@@ -70,6 +70,10 @@ class Storage:
         row = self.db.query_one("SELECT * FROM documents WHERE id = ?", (doc_id,))
         if row is None:
             return None
+        return self._row_to_record(row)
+
+    @staticmethod
+    def _row_to_record(row) -> DocumentRecord:
         return DocumentRecord(
             id=row["id"],
             filename=row["filename"],
@@ -77,6 +81,13 @@ class Storage:
             analysis=DocumentAnalysis.model_validate_json(row["analysis_json"]),
             created_at=row["created_at"],
         )
+
+    def list_documents(self, limit: int = 50, offset: int = 0) -> list[DocumentRecord]:
+        rows = self.db.query(
+            "SELECT * FROM documents ORDER BY created_at DESC LIMIT ? OFFSET ?",
+            (limit, offset),
+        )
+        return [self._row_to_record(r) for r in rows]
 
     def delete(self, doc_id: str) -> bool:
         row = self.db.query_one("SELECT id FROM documents WHERE id = ?", (doc_id,))

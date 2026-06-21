@@ -110,6 +110,21 @@ class JobManager:
         row = self._db.query_one("SELECT * FROM jobs WHERE id = ?", (job_id,))
         return _row_to_job(row) if row is not None else None
 
+    def list_jobs(self, limit: int = 50, offset: int = 0,
+                  status: Optional[str] = None) -> list[Job]:
+        if status:
+            rows = self._db.query(
+                "SELECT * FROM jobs WHERE status = ? ORDER BY created_at DESC"
+                " LIMIT ? OFFSET ?",
+                (status, limit, offset),
+            )
+        else:
+            rows = self._db.query(
+                "SELECT * FROM jobs ORDER BY created_at DESC LIMIT ? OFFSET ?",
+                (limit, offset),
+            )
+        return [_row_to_job(row) for row in rows]
+
     def _update(self, job_id: str, **fields) -> None:
         sets = ["updated_at = ?"]
         params: list = [time.time()]

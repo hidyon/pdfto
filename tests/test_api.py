@@ -20,6 +20,7 @@ from app.jobs import JobManager
 def client(tmp_path, monkeypatch):
     # Isolate storage and a fresh single-worker job manager for each test,
     # sharing one SQLite database.
+    from app.security import RateLimiter
     from app.storage import Storage
     from app.webhooks import WebhookDispatcher
     store = Storage(tmp_path)
@@ -29,6 +30,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr(main, "webhook_dispatcher", dispatcher)
     monkeypatch.setattr(main, "jobs",
                         JobManager(max_workers=1, db=store.db, dispatcher=dispatcher))
+    monkeypatch.setattr(main, "rate_limiter", RateLimiter())
 
     def fake_convert(pdf_path, options, image_dir=None):
         return ConvertedDocument(
@@ -115,6 +117,44 @@ def test_failed_conversion_marks_job_failed(client, text_pdf, monkeypatch):
 def test_unknown_job_404(client):
     r = client.get("/api/v1/jobs/nope")
     assert r.status_code == 404
+
+
+def test_list_documents(client, text_pdf):
+    ids = []
+    for name in ("a.pdf", "b.pdf"):
+        r = client.post("/api/v1/documents",
+                        files={"file": (name, text_pdf, "application/pdf")})
+        ids.append(r.json()["id"])
+    listing = client.get("/api/v1/documents").json()
+    listed_ids = {d["id"] for d in listing}
+    assert set(ids) <= listed_ids
+    assert all({"id", "filename", "created_at", "page_count"} <= d.keys()
+               for d in listing)
+
+
+def test_list_jobs_and_status_filter(client, text_pdf):
+    up = client.post("/api/v1/documents",
+                     files={"file": ("doc.pdf", text_pdf, "application/pdf")})
+    doc_id = up.json()["id"]
+    job = client.post(f"/api/v1/documents/{doc_id}/convert", json={})
+    job_id = job.json()["id"]
+    _wait_for_job(client, job_id)
+
+    all_jobs = client.get("/api/v1/jobs").json()
+    assert any(j["id"] == job_id for j in all_jobs)
+
+    succeeded = client.get("/api/v1/jobs?status=succeeded").json()
+    assert any(j["id"] == job_id for j in succeeded)
+    assert all(j["status"] == "succeeded" for j in succeeded)
+
+    failed = client.get("/api/v1/jobs?status=failed").json()
+    assert all(j["id"] != job_id for j in failed)
+
+
+def test_listing_validates_limit(client):
+    assert client.get("/api/v1/documents?limit=0").status_code == 422
+    assert client.get("/api/v1/documents?limit=201").status_code == 422
+    assert client.get("/api/v1/jobs?offset=-1").status_code == 422
 
 
 def test_llm_postprocess_applied(client, text_pdf, monkeypatch):

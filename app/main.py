@@ -44,7 +44,9 @@ from .models import (
     BatchResponse,
     DocumentAnalysis,
     DocumentResponse,
+    DocumentSummary,
     Job,
+    JobStatus,
     OutputFormat,
     Question,
     TableMode,
@@ -253,6 +255,18 @@ async def upload_document(file: UploadFile = File(...)) -> DocumentResponse:
     )
 
 
+@app.get("/api/v1/documents", response_model=list[DocumentSummary],
+         tags=["documents"])
+def list_documents(limit: int = Query(50, ge=1, le=200),
+                   offset: int = Query(0, ge=0)) -> list[DocumentSummary]:
+    """List uploaded documents, newest first."""
+    return [
+        DocumentSummary(id=r.id, filename=r.filename, created_at=r.created_at,
+                        page_count=r.analysis.page_count)
+        for r in storage.list_documents(limit, offset)
+    ]
+
+
 @app.get("/api/v1/documents/{doc_id}", response_model=DocumentResponse,
          tags=["documents"])
 def get_document(doc_id: str) -> DocumentResponse:
@@ -310,6 +324,14 @@ def convert_document(
     options = apply_answers(answers or {})
     work = _conversion_work(doc_id, record.pdf_path, options)
     return jobs.submit(doc_id, options.output_format, work, callback_url=callback_url)
+
+
+@app.get("/api/v1/jobs", response_model=list[Job], tags=["jobs"])
+def list_jobs(limit: int = Query(50, ge=1, le=200),
+              offset: int = Query(0, ge=0),
+              status: Optional[JobStatus] = Query(None)) -> list[Job]:
+    """List conversion jobs, newest first; optionally filtered by status."""
+    return jobs.list_jobs(limit, offset, status.value if status else None)
 
 
 @app.get("/api/v1/jobs/{job_id}", response_model=Job, tags=["jobs"])

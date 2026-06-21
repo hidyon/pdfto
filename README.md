@@ -74,6 +74,14 @@ GET  /api/v1/jobs/{job_id}          # ジョブの状態をポーリング（suc
 GET  /api/v1/documents/{id}/download?format=markdown   # 変換ファイルを取得
 ```
 
+一覧・追跡用のエンドポイントもあります（新しい順・`limit`/`offset` でページング）。
+
+```
+GET /api/v1/documents?limit=50&offset=0          # ドキュメント一覧（サマリ）
+GET /api/v1/jobs?status=succeeded&limit=50       # ジョブ一覧（status で絞り込み可）
+GET /api/v1/jobs/{job_id}/deliveries             # Webhook 配送履歴
+```
+
 例:
 
 ```bash

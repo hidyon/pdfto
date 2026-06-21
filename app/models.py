@@ -104,6 +104,15 @@ class Question(BaseModel):
     choices: Optional[list[QuestionChoice]] = None
 
 
+class DocumentSummary(BaseModel):
+    """Lightweight document entry for listings."""
+
+    id: str
+    filename: str
+    created_at: float
+    page_count: int
+
+
 class BatchItem(BaseModel):
     """One file within a batch and the job converting it."""
 
