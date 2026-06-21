@@ -226,6 +226,7 @@ function showResult(result) {
 
   $("#step-result").classList.remove("hidden");
   $("#step-result").scrollIntoView({ behavior: "smooth" });
+  loadHistory();
 }
 
 $("#restart-btn").addEventListener("click", () => {
@@ -236,3 +237,112 @@ $("#restart-btn").addEventListener("click", () => {
   $("#step-result").classList.add("hidden");
   window.scrollTo({ top: 0, behavior: "smooth" });
 });
+
+// --------------------------------------------------------------------------
+// History (recent jobs: download + re-run)
+// --------------------------------------------------------------------------
+let historyPolling = false;
+
+function fmtTime(epoch) {
+  try {
+    return new Date(epoch * 1000).toLocaleString();
+  } catch (e) {
+    return "";
+  }
+}
+
+async function loadHistory() {
+  const status = $("#history-status");
+  try {
+    const res = await fetch(`${API}/jobs?limit=20`);
+    if (res.status === 401) {
+      status.textContent = "認証が必要です（APIキーを設定してください）。";
+      return;
+    }
+    if (!res.ok) throw new Error(res.statusText);
+    const jobs = await res.json();
+    status.textContent = "";
+    renderHistory(jobs);
+    // Keep refreshing while anything is still in progress.
+    const active = jobs.some((j) => j.status === "pending" || j.status === "running");
+    if (active && !historyPolling) {
+      historyPolling = true;
+      setTimeout(pollHistory, 2000);
+    }
+  } catch (err) {
+    status.className = "status error";
+    status.textContent = `履歴の取得に失敗しました: ${err.message}`;
+  }
+}
+
+async function pollHistory() {
+  historyPolling = false;
+  await loadHistory();
+}
+
+function renderHistory(jobs) {
+  const list = $("#history-list");
+  list.innerHTML = "";
+  if (!jobs.length) {
+    list.innerHTML = '<p class="status">まだジョブがありません。</p>';
+    return;
+  }
+  for (const job of jobs) {
+    const row = document.createElement("div");
+    row.className = "history-row";
+
+    const badge = document.createElement("span");
+    badge.className = `badge ${job.status}`;
+    badge.textContent = job.status;
+
+    const meta = document.createElement("div");
+    meta.className = "history-meta";
+    const name = document.createElement("div");
+    name.className = "history-name";
+    name.textContent = job.filename || job.document_id;
+    const sub = document.createElement("div");
+    sub.className = "history-sub";
+    sub.textContent = `${job.output_format} ・ ${fmtTime(job.created_at)}`;
+    meta.append(name, sub);
+
+    const actions = document.createElement("div");
+    actions.className = "history-actions";
+    if (job.status === "succeeded" && job.download_url) {
+      const dl = document.createElement("a");
+      dl.className = "button small";
+      dl.href = job.download_url;
+      dl.setAttribute("download", job.filename || "");
+      dl.textContent = "ダウンロード";
+      actions.appendChild(dl);
+    }
+    if (job.error) {
+      badge.title = job.error;
+    }
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "secondary small";
+    retry.textContent = "再実行";
+    retry.addEventListener("click", () => retryJob(job.id, retry));
+    actions.appendChild(retry);
+
+    row.append(badge, meta, actions);
+    list.appendChild(row);
+  }
+}
+
+async function retryJob(jobId, btn) {
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${API}/jobs/${jobId}/retry`, { method: "POST" });
+    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+    await loadHistory();
+  } catch (err) {
+    $("#history-status").className = "status error";
+    $("#history-status").textContent = `再実行に失敗しました: ${err.message}`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+$("#refresh-history").addEventListener("click", loadHistory);
+loadHistory();

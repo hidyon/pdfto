@@ -101,6 +101,31 @@ button.secondary:hover { background: rgba(255,255,255,.04); }
 
 .result-actions { display: flex; gap: 12px; margin-bottom: 16px; }
 
+/* History */
+.history-head { display: flex; align-items: center; justify-content: space-between; }
+.history-head h2 { margin: 0; }
+.history-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0; border-bottom: 1px solid var(--card-border);
+}
+.history-row:last-child { border-bottom: none; }
+.history-meta { flex: 1; min-width: 0; }
+.history-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-sub { color: var(--muted); font-size: 0.82rem; }
+.history-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.button.small, button.small {
+  padding: 6px 12px; font-size: 0.82rem;
+}
+.badge {
+  display: inline-block; padding: 3px 10px; border-radius: 999px;
+  font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.03em; flex-shrink: 0;
+}
+.badge.pending   { background: rgba(139,151,173,.18); color: var(--muted); }
+.badge.running   { background: rgba(79,140,255,.18); color: var(--accent); }
+.badge.succeeded { background: rgba(62,207,142,.16); color: var(--ok); }
+.badge.failed    { background: rgba(255,122,122,.16); color: #ff7a7a; }
+
 .status { font-size: 0.9rem; color: var(--muted); min-height: 1.2em; }
 .status.error { color: #ff7a7a; }
 .status.ok { color: var(--ok); }
