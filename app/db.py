@@ -46,7 +46,9 @@ CREATE TABLE IF NOT EXISTS jobs (
     preview       TEXT,
     truncated     INTEGER NOT NULL DEFAULT 0,
     error         TEXT,
-    batch_id      TEXT
+    batch_id      TEXT,
+    options       TEXT,
+    callback_url  TEXT
 );
 
 CREATE TABLE IF NOT EXISTS batches (
@@ -91,6 +93,10 @@ class Database:
         cols = {r["name"] for r in self._conn.execute("PRAGMA table_info(jobs)")}
         if "batch_id" not in cols:
             self._conn.execute("ALTER TABLE jobs ADD COLUMN batch_id TEXT")
+        if "options" not in cols:
+            self._conn.execute("ALTER TABLE jobs ADD COLUMN options TEXT")
+        if "callback_url" not in cols:
+            self._conn.execute("ALTER TABLE jobs ADD COLUMN callback_url TEXT")
 
     def execute(self, sql: str, params: tuple = ()) -> None:
         with self._lock:

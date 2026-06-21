@@ -119,6 +119,37 @@ def test_unknown_job_404(client):
     assert r.status_code == 404
 
 
+def test_retry_job_reruns_with_same_options(client, text_pdf):
+    up = client.post("/api/v1/documents",
+                     files={"file": ("doc.pdf", text_pdf, "application/pdf")})
+    doc_id = up.json()["id"]
+    first = client.post(f"/api/v1/documents/{doc_id}/convert",
+                        json={"output_format": "html"}).json()
+    _wait_for_job(client, first["id"])
+
+    r = client.post(f"/api/v1/jobs/{first['id']}/retry")
+    assert r.status_code == 202, r.text
+    retried = r.json()
+    assert retried["id"] != first["id"]
+    assert retried["output_format"] == "html"
+    done = _wait_for_job(client, retried["id"])
+    assert done["status"] == "succeeded"
+
+
+def test_retry_unknown_job_404(client):
+    assert client.post("/api/v1/jobs/nope/retry").status_code == 404
+
+
+def test_retry_after_document_deleted_409(client, text_pdf):
+    up = client.post("/api/v1/documents",
+                     files={"file": ("doc.pdf", text_pdf, "application/pdf")})
+    doc_id = up.json()["id"]
+    job = client.post(f"/api/v1/documents/{doc_id}/convert", json={}).json()
+    _wait_for_job(client, job["id"])
+    assert client.delete(f"/api/v1/documents/{doc_id}").status_code == 204
+    assert client.post(f"/api/v1/jobs/{job['id']}/retry").status_code == 409
+
+
 def test_list_documents(client, text_pdf):
     ids = []
     for name in ("a.pdf", "b.pdf"):

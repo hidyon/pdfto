@@ -76,7 +76,8 @@ class JobManager:
 
     def submit(self, document_id: str, output_format: OutputFormat,
                work: Work, callback_url: Optional[str] = None,
-               batch_id: Optional[str] = None) -> Job:
+               batch_id: Optional[str] = None,
+               options_json: Optional[str] = None) -> Job:
         """Register a job and schedule *work* to run in the background.
 
         If *callback_url* is given, a completion webhook is POSTed there once
@@ -95,10 +96,10 @@ class JobManager:
         )
         self._db.execute(
             "INSERT INTO jobs (id, document_id, status, output_format,"
-            " created_at, updated_at, truncated, batch_id)"
-            " VALUES (?, ?, ?, ?, ?, ?, 0, ?)",
+            " created_at, updated_at, truncated, batch_id, options, callback_url)"
+            " VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?)",
             (job.id, document_id, job.status.value, output_format.value, now, now,
-             batch_id),
+             batch_id, options_json, callback_url),
         )
         rid = request_id_var.get()
         logger.info("job submitted", extra={"job_id": job.id,
@@ -109,6 +110,20 @@ class JobManager:
     def get(self, job_id: str) -> Optional[Job]:
         row = self._db.query_one("SELECT * FROM jobs WHERE id = ?", (job_id,))
         return _row_to_job(row) if row is not None else None
+
+    def get_retry_info(self, job_id: str) -> Optional[dict]:
+        """Return the info needed to re-run a job, or None if unknown."""
+        row = self._db.query_one(
+            "SELECT document_id, options, callback_url FROM jobs WHERE id = ?",
+            (job_id,),
+        )
+        if row is None:
+            return None
+        return {
+            "document_id": row["document_id"],
+            "options_json": row["options"],
+            "callback_url": row["callback_url"],
+        }
 
     def list_jobs(self, limit: int = 50, offset: int = 0,
                   status: Optional[str] = None) -> list[Job]:

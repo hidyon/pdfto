@@ -42,6 +42,7 @@ from .logging_config import request_id_var, setup_logging
 from .models import (
     BatchItem,
     BatchResponse,
+    ConversionOptions,
     DocumentAnalysis,
     DocumentResponse,
     DocumentSummary,
@@ -323,7 +324,8 @@ def convert_document(
 
     options = apply_answers(answers or {})
     work = _conversion_work(doc_id, record.pdf_path, options)
-    return jobs.submit(doc_id, options.output_format, work, callback_url=callback_url)
+    return jobs.submit(doc_id, options.output_format, work, callback_url=callback_url,
+                       options_json=options.model_dump_json())
 
 
 @app.get("/api/v1/jobs", response_model=list[Job], tags=["jobs"])
@@ -350,6 +352,25 @@ def get_job_deliveries(job_id: str) -> list[dict]:
     if jobs.get(job_id) is None:
         raise HTTPException(404, "job not found")
     return webhook_dispatcher.list_for_job(job_id)
+
+
+@app.post("/api/v1/jobs/{job_id}/retry", response_model=Job, status_code=202,
+          tags=["jobs"])
+def retry_job(job_id: str) -> Job:
+    """Re-run a job with the same document and options as a new job."""
+    info = jobs.get_retry_info(job_id)
+    if info is None:
+        raise HTTPException(404, "job not found")
+    if not info["options_json"]:
+        raise HTTPException(422, "job has no stored options to retry")
+    record = storage.get(info["document_id"])
+    if record is None:
+        raise HTTPException(409, "source document no longer exists")
+    options = ConversionOptions.model_validate_json(info["options_json"])
+    work = _conversion_work(record.id, record.pdf_path, options)
+    return jobs.submit(record.id, options.output_format, work,
+                       callback_url=info["callback_url"],
+                       options_json=info["options_json"])
 
 
 @app.get("/api/v1/documents/{doc_id}/download", tags=["documents"])
@@ -518,7 +539,8 @@ async def create_batch(
         record = storage.create_document(filename, data, analysis)
         work = _conversion_work(record.id, record.pdf_path, options)
         job = jobs.submit(record.id, options.output_format, work,
-                          callback_url=callback_url, batch_id=batch_id)
+                          callback_url=callback_url, batch_id=batch_id,
+                          options_json=options.model_dump_json())
         items.append(BatchItem(filename=filename, document_id=record.id,
                                job_id=job.id, status=job.status))
     jobs.create_batch(batch_id, len(items))

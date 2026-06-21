@@ -49,6 +49,8 @@ def test_migration_adds_batch_id_to_existing_jobs(tmp_path):
     db = Database(path)  # opening should migrate
     cols = {r["name"] for r in db.query("SELECT name FROM pragma_table_info('jobs')")}
     assert "batch_id" in cols
+    assert "options" in cols
+    assert "callback_url" in cols
 
 
 def test_concurrent_writes_are_serialised(tmp_path):

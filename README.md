@@ -80,6 +80,7 @@ GET  /api/v1/documents/{id}/download?format=markdown   # 変換ファイルを�
 GET /api/v1/documents?limit=50&offset=0          # ドキュメント一覧（サマリ）
 GET /api/v1/jobs?status=succeeded&limit=50       # ジョブ一覧（status で絞り込み可）
 GET /api/v1/jobs/{job_id}/deliveries             # Webhook 配送履歴
+POST /api/v1/jobs/{job_id}/retry                 # 同じ設定で再実行（新ジョブを作成）
 ```
 
 例:
