@@ -2,3 +2,4 @@ fastapi[standard]>=0.115
 python-multipart>=0.0.9
 pypdf>=4.0
 docling>=2.0
+easyocr>=1.7

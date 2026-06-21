@@ -31,6 +31,9 @@ class Settings:
         # Local directory holding pre-downloaded docling models (baked into the
         # Docker image). When unset, docling uses its default cache.
         self.docling_artifacts = os.environ.get("PDFTO_DOCLING_ARTIFACTS") or None
+        # Local directory holding pre-downloaded EasyOCR models (baked into the
+        # Docker image). When set, language OCR runs offline (no download).
+        self.easyocr_models = os.environ.get("PDFTO_EASYOCR_MODELS") or None
         # Logging.
         self.log_level = os.environ.get("PDFTO_LOG_LEVEL", "INFO").upper()
         self.log_format = os.environ.get("PDFTO_LOG_FORMAT", "text").lower()

@@ -43,7 +43,7 @@ _EXTENSIONS = {
 @lru_cache(maxsize=8)
 def _get_converter(do_ocr: bool, do_table_structure: bool, table_mode: str,
                    generate_images: bool, artifacts_path: Optional[str] = None,
-                   ocr_languages: tuple = ()):
+                   ocr_languages: tuple = (), easyocr_models: Optional[str] = None):
     """Build (and cache) a docling ``DocumentConverter`` for a set of options.
 
     docling converters are expensive to construct because they load models, so
@@ -68,7 +68,12 @@ def _get_converter(do_ocr: bool, do_table_structure: bool, table_mode: str,
     if do_ocr and ocr_languages:
         # Use EasyOCR so language codes have a stable convention (en/ja/...).
         from docling.datamodel.pipeline_options import EasyOcrOptions
-        pipeline_options.ocr_options = EasyOcrOptions(lang=list(ocr_languages))
+        ocr_opts = EasyOcrOptions(lang=list(ocr_languages))
+        if easyocr_models:
+            # Use models baked into the image; never reach the network.
+            ocr_opts.model_storage_directory = easyocr_models
+            ocr_opts.download_enabled = False
+        pipeline_options.ocr_options = ocr_opts
     pipeline_options.do_table_structure = do_table_structure
     if do_table_structure:
         pipeline_options.table_structure_options.mode = (
@@ -163,6 +168,7 @@ def convert(pdf_path: str | Path, options: ConversionOptions,
             generate_images=generate_images,
             artifacts_path=settings.docling_artifacts,
             ocr_languages=tuple(options.ocr_languages),
+            easyocr_models=settings.easyocr_models,
         )
     except ImportError as exc:  # pragma: no cover - depends on environment
         raise ConversionError(

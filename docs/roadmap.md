@@ -91,6 +91,7 @@ API ファーストの最小構成を成立させる。
 | issue | 内容 | 状態 | spec |
 |------|------|------|------|
 | M3-1 | OCR 言語の選択と多言語対応 | done | [0010](specs/0010-ocr-languages.md) |
+| M3-1b | EasyOCR 言語モデルの焼き込み（オフライン言語 OCR） | done | [0013](specs/0013-easyocr-offline.md) |
 | M3-2 | 表抽出の品質改善・検証用サンプル整備 | done | [0012](specs/0012-table-quality.md) |
 | M3-3 | 画像の参照モード（別ファイル書き出し）の API/UI 完成 | done | [0011](specs/0011-referenced-images.md) |
 | M3-4 | LLM による任意整形（オプション、API キー前提） | todo | — |

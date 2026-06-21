@@ -144,8 +144,9 @@ OCR エンジンの扱い:
 - **言語未指定** … 既定エンジン（RapidOCR）。Docker イメージに焼き込まれており
   **オフラインでも動作**します。
 - **`ocr_languages` 指定** … [EasyOCR](https://www.jaided.ai/easyocr/)（言語コード:
-  `ja` / `en` / `ch_sim` / `ko` / `fr` / `de` / `es` …）。EasyOCR のモデルは
-  イメージに焼き込まれておらず、初回 OCR 時にダウンロードされます。
+  `ja` / `en` / `ch_sim` / `ko` / `fr` / `de` / `es`）。Docker イメージには対象言語の
+  EasyOCR モデルが焼き込まれており（`PDFTO_EASYOCR_MODELS`）、**オフラインでも
+  動作**します。非 Docker でモデルが無い場合は初回 OCR 時にダウンロードされます。
 
 > 検証: `PDFTO_RUN_DOCLING_TESTS=1 pytest tests/test_quality.py` で、画像のみの
 > サンプル（`samples/scanned_sample.pdf`）から OCR が本文を抽出することを確認できます。
@@ -235,6 +236,7 @@ npx @openapitools/openapi-generator-cli generate \
 | `PDFTO_WEBHOOK_SECRET` | （空） | 設定すると Webhook 本文に HMAC-SHA256 署名を付与 |
 | `PDFTO_WEBHOOK_TIMEOUT` | `10` | Webhook 配送のタイムアウト（秒） |
 | `PDFTO_WEBHOOK_ALLOWED_HOSTS` | （空） | Webhook 送信先の許可ホスト（カンマ区切り）。空なら制限なし |
+| `PDFTO_EASYOCR_MODELS` | （空） | EasyOCR モデルのディレクトリ。設定すると言語 OCR をオフライン実行（Docker では既定で設定済み） |
 
 ## 認証とレート制限
 
