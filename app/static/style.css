@@ -25,6 +25,12 @@ header { padding-top: 48px; text-align: center; }
 h1 { font-size: 2.4rem; margin: 0; letter-spacing: -0.02em; }
 .tagline { color: var(--text); margin: 12px 0 4px; }
 .api-hint { color: var(--muted); font-size: 0.9rem; }
+.api-key-row { margin-top: 10px; }
+.api-key-row input {
+  background: var(--card); color: var(--text);
+  border: 1px solid var(--card-border); border-radius: 8px;
+  padding: 7px 12px; font-size: 0.85rem; width: 100%; max-width: 360px;
+}
 a { color: var(--accent); }
 
 .card {

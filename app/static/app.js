@@ -7,6 +7,45 @@ let currentDoc = null; // { id, questions, analysis }
 const $ = (sel) => document.querySelector(sel);
 
 // --------------------------------------------------------------------------
+// API key (sent as X-API-Key when auth is enabled). Stored in localStorage.
+// --------------------------------------------------------------------------
+const API_KEY_STORE = "pdfto_api_key";
+const getApiKey = () => localStorage.getItem(API_KEY_STORE) || "";
+
+function authHeaders(extra) {
+  const headers = Object.assign({}, extra || {});
+  const key = getApiKey();
+  if (key) headers["X-API-Key"] = key;
+  return headers;
+}
+
+const apiKeyInput = $("#api-key");
+if (apiKeyInput) {
+  apiKeyInput.value = getApiKey();
+  apiKeyInput.addEventListener("input", () => {
+    localStorage.setItem(API_KEY_STORE, apiKeyInput.value.trim());
+  });
+}
+
+// Authenticated download: fetch as a blob and save (so X-API-Key is sent).
+async function downloadFile(url, filename) {
+  const res = await fetch(url, { headers: authHeaders() });
+  if (!res.ok) {
+    const detail = res.status === 401 ? "API キーが必要です" : res.statusText;
+    throw new Error(detail);
+  }
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = filename || "download";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
+// --------------------------------------------------------------------------
 // Upload
 // --------------------------------------------------------------------------
 const fileInput = $("#file-input");
@@ -31,7 +70,8 @@ async function uploadFile(file) {
   const form = new FormData();
   form.append("file", file);
   try {
-    const res = await fetch(`${API}/documents`, { method: "POST", body: form });
+    const res = await fetch(`${API}/documents`,
+                            { method: "POST", body: form, headers: authHeaders() });
     if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
     currentDoc = await res.json();
     status.textContent = `「${currentDoc.filename}」を読み込みました。`;
@@ -179,7 +219,7 @@ $("#convert-btn").addEventListener("click", async () => {
     // 1. submit the job
     const res = await fetch(`${API}/documents/${currentDoc.id}/convert`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(collectAnswers()),
     });
     if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
@@ -190,7 +230,7 @@ $("#convert-btn").addEventListener("click", async () => {
       const label = job.status === "pending" ? "変換待機中…" : "変換中…（初回はモデル読み込みで時間がかかることがあります）";
       status.innerHTML = `<span class="spinner"></span>${label}`;
       await sleep(POLL_INTERVAL_MS);
-      const pr = await fetch(`${API}/jobs/${job.id}`);
+      const pr = await fetch(`${API}/jobs/${job.id}`, { headers: authHeaders() });
       if (!pr.ok) throw new Error((await pr.json()).detail || pr.statusText);
       job = await pr.json();
     }
@@ -210,15 +250,26 @@ function showResult(result) {
   $("#preview").textContent = result.preview || "(空の出力)";
   $("#truncated-note").classList.toggle("hidden", !result.truncated);
   const link = $("#download-link");
-  link.href = result.download_url;
-  link.setAttribute("download", result.filename);
+  link.href = "#";
   link.textContent = `${result.filename} をダウンロード`;
+  link.onclick = (e) => {
+    e.preventDefault();
+    downloadFile(result.download_url, result.filename).catch((err) => {
+      $("#convert-status").className = "status error";
+      $("#convert-status").textContent = `ダウンロードに失敗しました: ${err.message}`;
+    });
+  };
 
   // Offer a zip (output + referenced images) when referenced mode was chosen.
   const imageSel = document.querySelector('#questions-form [data-qid="image_mode"]');
   const zip = $("#download-zip");
   if (imageSel && imageSel.value === "referenced") {
-    zip.href = result.download_url + "&bundle=zip";
+    const zipName = result.filename.replace(/\.[^.]+$/, "") + ".zip";
+    zip.href = "#";
+    zip.onclick = (e) => {
+      e.preventDefault();
+      downloadFile(result.download_url + "&bundle=zip", zipName).catch(() => {});
+    };
     zip.classList.remove("hidden");
   } else {
     zip.classList.add("hidden");
@@ -254,7 +305,7 @@ function fmtTime(epoch) {
 async function loadHistory() {
   const status = $("#history-status");
   try {
-    const res = await fetch(`${API}/jobs?limit=20`);
+    const res = await fetch(`${API}/jobs?limit=20`, { headers: authHeaders() });
     if (res.status === 401) {
       status.textContent = "認証が必要です（APIキーを設定してください）。";
       return;
@@ -308,11 +359,16 @@ function renderHistory(jobs) {
     const actions = document.createElement("div");
     actions.className = "history-actions";
     if (job.status === "succeeded" && job.download_url) {
-      const dl = document.createElement("a");
+      const dl = document.createElement("button");
+      dl.type = "button";
       dl.className = "button small";
-      dl.href = job.download_url;
-      dl.setAttribute("download", job.filename || "");
       dl.textContent = "ダウンロード";
+      dl.addEventListener("click", () => {
+        downloadFile(job.download_url, job.filename || "download").catch((err) => {
+          $("#history-status").className = "status error";
+          $("#history-status").textContent = `ダウンロードに失敗しました: ${err.message}`;
+        });
+      });
       actions.appendChild(dl);
     }
     if (job.error) {
@@ -333,7 +389,8 @@ function renderHistory(jobs) {
 async function retryJob(jobId, btn) {
   btn.disabled = true;
   try {
-    const res = await fetch(`${API}/jobs/${jobId}/retry`, { method: "POST" });
+    const res = await fetch(`${API}/jobs/${jobId}/retry`,
+                            { method: "POST", headers: authHeaders() });
     if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
     await loadHistory();
   } catch (err) {
