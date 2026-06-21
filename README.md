@@ -168,6 +168,7 @@ curl -O "http://localhost:8000/api/v1/documents/<ID>/assets/<filename>"
 | `do_ocr` | OCR を行うか（スキャン文書向け） | `true` / `false` |
 | `ocr_languages` | OCR の対象言語（複数可・EasyOCR コード） | `["ja","en"]` |
 | `do_table_structure` | 表構造を復元するか | `true` / `false` |
+| `table_mode` | 表抽出の精度（速度との兼ね合い） | `accurate` / `fast` |
 | `image_mode` | 画像の扱い | `placeholder` / `embedded` / `referenced` |
 | `page_range` | 変換するページ範囲 | `[1, 5]` |
 
@@ -328,6 +329,15 @@ pytest
 ```
 
 API テストは docling をモックするため、ML モデルのダウンロードなしで実行できます。
+
+実際の docling 変換まで含めて検証したい場合は、サンプル PDF（`samples/`）を使った
+任意実行テストを有効化します（初回はモデルをダウンロードします）:
+
+```bash
+PDFTO_RUN_DOCLING_TESTS=1 pytest tests/test_quality.py
+```
+
+サンプルは `python scripts/make_sample_pdfs.py`（reportlab 必要）で再生成できます。
 
 ## ライセンス / クレジット
 

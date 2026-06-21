@@ -46,6 +46,7 @@ from .models import (
     Job,
     OutputFormat,
     Question,
+    TableMode,
 )
 from .questions import apply_answers, build_questions
 from .security import RateLimiter, extract_api_key
@@ -368,6 +369,7 @@ async def convert_oneshot(
     output_format: OutputFormat = Query(default=OutputFormat.markdown),
     do_ocr: bool = Query(default=False),
     do_table_structure: bool = Query(default=True),
+    table_mode: TableMode = Query(default=TableMode.accurate),
     ocr_languages: list[str] = Query(default=[]),
 ) -> FileResponse:
     """Upload and convert in a single request (no questions).
@@ -387,6 +389,7 @@ async def convert_oneshot(
         "output_format": output_format.value,
         "do_ocr": do_ocr,
         "do_table_structure": do_table_structure,
+        "table_mode": table_mode.value,
         "ocr_languages": ocr_languages,
     })
     try:
@@ -415,6 +418,7 @@ async def create_batch(
     output_format: OutputFormat = Query(default=OutputFormat.markdown),
     do_ocr: bool = Query(default=False),
     do_table_structure: bool = Query(default=True),
+    table_mode: TableMode = Query(default=TableMode.accurate),
     ocr_languages: list[str] = Query(default=[]),
     callback_url: Optional[str] = Query(default=None),
 ) -> BatchResponse:
@@ -448,6 +452,7 @@ async def create_batch(
         "output_format": output_format.value,
         "do_ocr": do_ocr,
         "do_table_structure": do_table_structure,
+        "table_mode": table_mode.value,
         "ocr_languages": ocr_languages,
     })
     batch_id = uuid.uuid4().hex

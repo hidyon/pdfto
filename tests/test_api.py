@@ -256,6 +256,18 @@ def test_oneshot_accepts_ocr_languages(client, text_pdf):
     assert r.status_code == 200, r.text
 
 
+def test_oneshot_accepts_table_mode(client, text_pdf):
+    r = client.post("/api/v1/convert?table_mode=fast",
+                    files={"file": ("doc.pdf", text_pdf, "application/pdf")})
+    assert r.status_code == 200, r.text
+
+
+def test_batch_accepts_table_mode(client, text_pdf):
+    files = [("files", ("a.pdf", text_pdf, "application/pdf"))]
+    r = client.post("/api/v1/batches?table_mode=accurate", files=files)
+    assert r.status_code == 202, r.text
+
+
 def test_unknown_document_404(client):
     r = client.post("/api/v1/documents/does-not-exist/convert", json={})
     assert r.status_code == 404

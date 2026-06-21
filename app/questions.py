@@ -85,6 +85,19 @@ def build_questions(analysis: DocumentAnalysis) -> list[Question]:
             default=True,
         )
     )
+    questions.append(
+        Question(
+            id="table_mode",
+            type="choice",
+            prompt="表抽出の精度は？",
+            help="accurate は精度重視、fast は速度重視。表構造を復元する場合に有効です。",
+            default=TableMode.accurate.value,
+            choices=[
+                QuestionChoice(value=TableMode.accurate.value, label="高精度 (accurate)"),
+                QuestionChoice(value=TableMode.fast.value, label="高速 (fast)"),
+            ],
+        )
+    )
 
     # Image handling — only relevant when images are present.
     if analysis.has_images:

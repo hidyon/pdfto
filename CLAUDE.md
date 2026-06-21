@@ -34,7 +34,8 @@ app/
   main.py        FastAPI アプリ（REST API + Web UI 配信）
   static/        Web UI（HTML/CSS/JS）
 client/python/   依存ゼロの Python クライアント（コピーして使える）
-scripts/         OpenAPI 書き出し等の補助スクリプト
+scripts/         OpenAPI 書き出し・サンプル PDF 生成等の補助スクリプト
+samples/         変換の検証用サンプル PDF
 tests/           pytest
 docs/
   roadmap.md     ロードマップ（マイルストーン → issue）

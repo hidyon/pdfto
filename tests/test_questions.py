@@ -79,3 +79,16 @@ def test_no_ocr_language_question_for_clean_text():
 def test_apply_answers_maps_ocr_languages():
     opts = apply_answers({"do_ocr": True, "ocr_languages": ["ja", "en"]})
     assert opts.ocr_languages == ["ja", "en"]
+
+
+def test_table_mode_question_present_with_default_accurate():
+    qs = {q.id: q for q in build_questions(_analysis())}
+    assert "table_mode" in qs
+    assert qs["table_mode"].type == "choice"
+    assert qs["table_mode"].default == "accurate"
+
+
+def test_apply_answers_maps_table_mode():
+    from app.models import TableMode
+    opts = apply_answers({"table_mode": "fast"})
+    assert opts.table_mode is TableMode.fast
