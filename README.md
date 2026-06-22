@@ -197,8 +197,12 @@ curl -O "http://localhost:8000/api/v1/documents/<ID>/assets/<filename>"
 
 ### Python クライアント（同梱・依存ゼロ）
 
-[`client/python/pdfto_client.py`](client/python/pdfto_client.py) をコピーするだけで
-使えます。
+`pip` で導入するか、[`client/python/pdfto_client.py`](client/python/pdfto_client.py) を
+1 ファイルだけコピーして使えます。
+
+```bash
+pip install ./client/python   # ソースから（公開後は pip install pdfto-client）
+```
 
 ```python
 from pdfto_client import PDFtoClient

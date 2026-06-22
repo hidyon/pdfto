@@ -1,7 +1,26 @@
 # PDFto Python クライアント
 
-依存ゼロ（標準ライブラリのみ）の PDFto API クライアントです。`pdfto_client.py` を
-プロジェクトにコピーして使えます。
+依存ゼロ（標準ライブラリのみ）の PDFto API クライアントです。`pip` で導入するか、
+`pdfto_client.py` を 1 ファイルだけプロジェクトにコピーして使えます。
+
+## インストール
+
+```bash
+# ソースから（このリポジトリ内）
+pip install ./client/python
+
+# 公開後（PyPI）
+pip install pdfto-client
+
+# もしくはコピー利用（依存ゼロなので 1 ファイルで動く）
+cp client/python/pdfto_client.py your_project/
+```
+
+```python
+import pdfto_client
+print(pdfto_client.__version__)
+from pdfto_client import PDFtoClient, PDFtoError
+```
 
 ```python
 from pdfto_client import PDFtoClient
@@ -32,6 +51,16 @@ client.convert(doc["id"], {"output_format": "markdown"},
 ```
 
 エラー時は `PDFtoError`（`.status` / `.detail`）が送出されます。
+
+## パッケージの公開（メンテナ向け）
+
+```bash
+pip install build twine
+python -m build           # dist/ に wheel と sdist を生成
+twine upload dist/*       # PyPI へ公開（要アカウント・API トークン）
+```
+
+`pyproject.toml` の `version` と `pdfto_client.__version__` を揃えてから公開します。
 
 ## 他言語のクライアント
 

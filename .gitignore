@@ -4,6 +4,8 @@ __pycache__/
 .pytest_cache/
 data/
 *.egg-info/
+build/
+dist/
 .DS_Store
 
 # Local CI/verification artifacts (environment-specific, not for the repo)

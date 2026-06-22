@@ -23,6 +23,10 @@ import uuid
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
+__version__ = "0.1.0"
+
+__all__ = ["PDFtoClient", "PDFtoError", "__version__"]
+
 
 class PDFtoError(Exception):
     """Raised when the API returns a non-2xx response."""
