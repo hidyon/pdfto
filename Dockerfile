@@ -9,6 +9,12 @@
 # ---- builder ---------------------------------------------------------------
 FROM python:3.11-slim AS builder
 
+# EasyOCR (imported by the model-fetch script) loads OpenCV, which needs these
+# shared libs even at import time.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     PATH=/opt/venv/bin:$PATH
