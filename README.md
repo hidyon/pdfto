@@ -262,6 +262,14 @@ npx @openapitools/openapi-generator-cli generate \
 
 ## 認証とレート制限
 
+> **2 種類の「API キー」があります（別物）。**
+> - **`PDFTO_API_KEYS`** … *このアプリ*の REST API（`/api/v1/*`）へのアクセスを絞る鍵。
+>   Claude とは無関係。**既定 OFF**で、ローカル/信頼ネット用途ならそのままで構いません。
+>   外部公開して変換リソースを濫用から守りたい時にだけ設定します（下記）。
+> - **`ANTHROPIC_API_KEY`**（=`PDFTO_ANTHROPIC_API_KEY`）… *Claude* を呼ぶ鍵。
+>   任意の「LLM 整形」機能でのみ使います（「[LLM による任意整形](#llm-による任意整形オプション)」参照）。
+>   PDF→Markdown 変換そのものはこの鍵なしで動きます。
+
 `PDFTO_API_KEYS` を設定すると、`/api/v1/*` に **API キー認証**が必須になります
 （未設定なら無認証で従来どおり）。キーは `X-API-Key` か `Authorization: Bearer` で
 送ります。`/api/health`・`/docs`・Web UI は常に開放です。
