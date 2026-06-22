@@ -415,6 +415,13 @@ API テストは docling をモックするため、ML モデルのダウンロ�
 PDFTO_RUN_DOCLING_TESTS=1 pytest tests/test_quality.py
 ```
 
+LLM 整形（Claude）の実呼び出しまで検証したい場合は、専用フラグと API キーの**両方**が
+必要です（課金あり。どちらか欠けると skip）:
+
+```bash
+PDFTO_RUN_LLM_TESTS=1 ANTHROPIC_API_KEY=sk-ant-... pytest tests/test_quality_llm.py
+```
+
 サンプルは `python scripts/make_sample_pdfs.py`（reportlab 必要）で再生成できます。
 
 ## ライセンス / クレジット

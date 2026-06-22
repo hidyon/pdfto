@@ -9,6 +9,7 @@ table detection on synthetic PDFs is model-dependent (see spec 0012).
 
 from __future__ import annotations
 
+import json
 import os
 import pathlib
 
@@ -41,6 +42,39 @@ def test_table_sample_converts(table_mode):
     )
     result = convert(SAMPLE, opts)
     assert isinstance(result.content, str)
+    assert result.content.strip() != ""
+
+
+@pytest.mark.parametrize("fmt", ["markdown", "html", "json", "text"])
+def test_table_sample_all_formats(fmt):
+    """Every output format exports without error and is well-formed.
+
+    The table sample is classified as a Picture (see spec 0012), so plain-text
+    export of this image-only page is legitimately empty — only the structured
+    formats are asserted non-empty.
+    """
+    from app.converter import convert
+    from app.models import ConversionOptions, OutputFormat
+
+    result = convert(SAMPLE, ConversionOptions(output_format=OutputFormat(fmt)))
+    assert isinstance(result.content, str)
+    if fmt == "json":
+        json.loads(result.content)              # valid JSON document tree
+    elif fmt == "html":
+        assert "<" in result.content
+    elif fmt == "markdown":
+        assert result.content.strip() != ""     # at least the image placeholder
+    # text: export_to_text() of an image-only page can be empty; the assertion
+    # above (returns a str without raising) is the meaningful check here.
+
+
+def test_page_range_converts():
+    """A page-range restricted conversion runs and returns output."""
+    from app.converter import convert
+    from app.models import ConversionOptions, OutputFormat
+
+    result = convert(SAMPLE, ConversionOptions(
+        output_format=OutputFormat.markdown, page_start=1, page_end=1))
     assert result.content.strip() != ""
 
 
