@@ -290,6 +290,110 @@ $("#restart-btn").addEventListener("click", () => {
 });
 
 // --------------------------------------------------------------------------
+// Batch (multiple PDFs, shared options, per-file progress)
+// --------------------------------------------------------------------------
+const batchInput = $("#batch-input");
+const batchDropzone = $("#batch-dropzone");
+let batchFiles = [];
+let batchPolling = false;
+
+if (batchDropzone) {
+  batchInput.addEventListener("change", () => {
+    batchFiles = Array.from(batchInput.files || []);
+    $("#batch-dropzone-text").textContent =
+      batchFiles.length ? `${batchFiles.length} 件選択中` : "クリックして複数の PDF を選択";
+  });
+  $("#batch-submit").addEventListener("click", submitBatch);
+}
+
+async function submitBatch() {
+  if (!batchFiles.length) {
+    $("#batch-status").className = "status";
+    $("#batch-status").textContent = "PDF を 1 件以上選択してください。";
+    return;
+  }
+  const btn = $("#batch-submit");
+  const status = $("#batch-status");
+  btn.disabled = true;
+  status.className = "status";
+  status.innerHTML = `<span class="spinner"></span>投入中…`;
+
+  const form = new FormData();
+  for (const f of batchFiles) form.append("files", f);
+  const fmt = $("#batch-format").value;
+  const params = new URLSearchParams({ output_format: fmt, do_ocr: $("#batch-ocr").checked });
+  try {
+    const res = await fetch(`${API}/batches?${params}`,
+                            { method: "POST", body: form, headers: authHeaders() });
+    if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+    const batch = await res.json();
+    status.textContent = `バッチを投入しました（${batch.count} 件）。`;
+    renderBatch(batch.items, fmt);
+    pollBatch(batch.id, fmt);
+    loadHistory();
+  } catch (err) {
+    status.className = "status error";
+    status.textContent = `バッチ投入に失敗しました: ${err.message}`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function pollBatch(batchId, fmt) {
+  if (batchPolling) return;
+  batchPolling = true;
+  const step = async () => {
+    try {
+      const res = await fetch(`${API}/batches/${batchId}`, { headers: authHeaders() });
+      if (!res.ok) throw new Error(res.statusText);
+      const batch = await res.json();
+      renderBatch(batch.items, fmt);
+      const active = batch.items.some((i) => i.status === "pending" || i.status === "running");
+      if (active) {
+        setTimeout(step, 2000);
+      } else {
+        batchPolling = false;
+        loadHistory();
+      }
+    } catch (err) {
+      batchPolling = false;
+    }
+  };
+  setTimeout(step, 2000);
+}
+
+function renderBatch(items, fmt) {
+  const list = $("#batch-list");
+  list.innerHTML = "";
+  for (const item of items) {
+    const row = document.createElement("div");
+    row.className = "history-row";
+    const badge = document.createElement("span");
+    badge.className = `badge ${item.status}`;
+    badge.textContent = item.status;
+    const meta = document.createElement("div");
+    meta.className = "history-meta";
+    const name = document.createElement("div");
+    name.className = "history-name";
+    name.textContent = item.filename;
+    meta.appendChild(name);
+    const actions = document.createElement("div");
+    actions.className = "history-actions";
+    if (item.status === "succeeded") {
+      const url = `${API}/documents/${item.document_id}/download?format=${fmt}`;
+      const dl = document.createElement("button");
+      dl.type = "button";
+      dl.className = "button small";
+      dl.textContent = "ダウンロード";
+      dl.addEventListener("click", () => downloadFile(url, item.filename).catch(() => {}));
+      actions.appendChild(dl);
+    }
+    row.append(badge, meta, actions);
+    list.appendChild(row);
+  }
+}
+
+// --------------------------------------------------------------------------
 // History (recent jobs: download + re-run)
 // --------------------------------------------------------------------------
 let historyPolling = false;

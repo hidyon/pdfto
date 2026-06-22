@@ -49,6 +49,29 @@
       <p id="truncated-note" class="status hidden">※ プレビューは先頭部分のみ表示しています。全文はダウンロードしてください。</p>
     </section>
 
+    <!-- Batch -->
+    <section id="batch" class="card">
+      <h2>バッチ変換（複数 PDF）</h2>
+      <label id="batch-dropzone" class="dropzone">
+        <input type="file" id="batch-input" accept="application/pdf,.pdf" multiple hidden />
+        <span id="batch-dropzone-text">クリックして複数の PDF を選択</span>
+      </label>
+      <div class="batch-options">
+        <label>出力形式
+          <select id="batch-format">
+            <option value="markdown">Markdown (.md)</option>
+            <option value="html">HTML (.html)</option>
+            <option value="json">JSON</option>
+            <option value="text">テキスト (.txt)</option>
+          </select>
+        </label>
+        <label class="toggle"><input type="checkbox" id="batch-ocr" /><span>OCR を行う</span></label>
+        <button id="batch-submit" type="button">バッチ変換する</button>
+      </div>
+      <p id="batch-status" class="status"></p>
+      <div id="batch-list"></div>
+    </section>
+
     <!-- History -->
     <section id="history" class="card">
       <div class="history-head">
