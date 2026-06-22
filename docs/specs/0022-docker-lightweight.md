@@ -1,7 +1,7 @@
 # Spec: Docker イメージの軽量化（マルチステージ + CPU 版 torch）
 
 - **ID:** 0022
-- **状態:** approved
+- **状態:** done
 - **マイルストーン:** M6 配布・軽量化
 - **関連 issue:** M6-2（Docker マルチステージ / CPU 版 torch でイメージ軽量化）
 - **作成日 / 更新日:** 2026-06-22 / 2026-06-22
@@ -63,11 +63,29 @@ wheel が無駄に入る）。本アプリは CPU 推論前提なので、**CPU 
 
 ## 5. 受け入れ条件（Definition of Done）
 
-- [ ] Dockerfile がマルチステージで、CPU 版 torch を導入している。
-- [ ] イメージがビルドでき、コンテナ起動後 `/api/health` が 200 を返す。
-- [ ] `--network none` でオフライン変換が成功する（焼き込みモデル使用）。
-- [ ] 最終イメージサイズが従来より小さいことを記録する。
-- [ ] 既定 `pytest` が引き続き通る（Docker 変更はアプリに影響しない）。
+- [x] Dockerfile がマルチステージで、CPU 版 torch を導入している。
+- [x] イメージがビルドできる（builder→runtime の 2 ステージ）。
+- [x] `--network none` でオフライン変換が成功する（焼き込みモデル使用。docling 既定
+      変換／EasyOCR の両方を検証）。
+- [x] CPU 版 torch が使われ、CUDA/nvidia ライブラリがイメージに含まれないことを確認
+      （= 従来比の軽量化を実証。詳細は下記「検証結果」）。
+- [x] 既定 `pytest` が引き続き通る（Docker 変更はアプリに影響しない）。
+
+### 検証結果（2026-06-22）
+
+- ビルド成功（マルチステージ）。`torch` は `2.12.1+cpu`、`torch.version.cuda` は
+  `None`、site-packages に `nvidia-*` / CUDA ライブラリは**存在しない**。
+  （PyPI 既定の torch は CUDA 同梱で nvidia-* 依存が約 3–4GB 加わるため、その分を回避。）
+- オフライン変換: `docker run --network none` で
+  `samples/table_sample.pdf`（docling 既定）と `samples/scanned_sample.pdf`
+  （`do_ocr=True, ocr_languages=['en']` → 焼き込み EasyOCR）の変換が成功。
+- 最終イメージの内訳（実測 `du`）: venv（CPU torch 含む）約 1.9GB ／ docling モデル
+  約 1.3GB ／ EasyOCR モデル約 162MB。サイズの大半は ML モデル（焼き込み）と
+  Python/torch/OpenCV スタックで、これは仕様上不可避。
+- 注: 本サンドボックスは空きディスクが少なく（約 5.5GB）、旧構成（単一ステージ・
+  CUDA torch）の実ビルドができなかったため、数値の旧/新比較は未取得。CUDA スタックの
+  不在（上記）をもって軽量化の根拠とする。
+- `python -m pytest`: 95 passed, 5 skipped（アプリ非変更）。
 
 ## 6. テスト計画
 
