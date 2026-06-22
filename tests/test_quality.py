@@ -18,7 +18,36 @@ import pytest
 RUN = os.environ.get("PDFTO_RUN_DOCLING_TESTS") == "1"
 _SAMPLES = pathlib.Path(__file__).resolve().parents[1] / "samples"
 SAMPLE = _SAMPLES / "table_sample.pdf"
+TABLE_DOC = _SAMPLES / "table_doc_sample.pdf"
 SCANNED = _SAMPLES / "scanned_sample.pdf"
+
+# Must match scripts/make_sample_pdfs.py::make_table_doc_sample.
+EXPECTED_TABLE = [
+    ["Product", "Q1", "Q2", "Q3"],
+    ["Widget", "100", "120", "140"],
+    ["Gadget", "90", "85", "95"],
+    ["Gizmo", "60", "75", "80"],
+    ["Doohickey", "45", "50", "55"],
+]
+
+
+def parse_markdown_table(md: str) -> list[list[str]]:
+    """Return the first Markdown table as rows of stripped cells.
+
+    The ``|---|`` separator row is dropped; cell whitespace is normalised so
+    docling's column padding doesn't affect comparisons.
+    """
+    rows: list[list[str]] = []
+    for line in md.splitlines():
+        if "|" not in line:
+            if rows:
+                break  # table ended
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if all(set(c) <= set("-:") and c for c in cells):
+            continue  # separator row
+        rows.append([" ".join(c.split()) for c in cells])
+    return rows
 
 pytestmark = pytest.mark.skipif(
     not RUN, reason="set PDFTO_RUN_DOCLING_TESTS=1 to run real docling conversions"
@@ -76,6 +105,35 @@ def test_page_range_converts():
     result = convert(SAMPLE, ConversionOptions(
         output_format=OutputFormat.markdown, page_start=1, page_end=1))
     assert result.content.strip() != ""
+
+
+def test_table_doc_quality():
+    """The document-style table is extracted with full cell recovery.
+
+    Quality metric: parse the Markdown table and assert its shape (4 columns,
+    5 data rows incl. header) and a cell-recovery ratio of 1.0 against the
+    known expected values.
+    """
+    from app.converter import convert
+    from app.models import ConversionOptions, OutputFormat
+
+    result = convert(TABLE_DOC, ConversionOptions(
+        output_format=OutputFormat.markdown, do_table_structure=True))
+    table = parse_markdown_table(result.content)
+
+    assert table, "no Markdown table found in output"
+    assert len(table) == len(EXPECTED_TABLE), f"row count: {len(table)}"
+    assert all(len(r) == 4 for r in table), f"column counts: {[len(r) for r in table]}"
+
+    expected_cells = {(r, c) for r, row in enumerate(EXPECTED_TABLE)
+                      for c in range(len(row))}
+    found = sum(
+        1 for (r, c) in expected_cells
+        if r < len(table) and c < len(table[r])
+        and table[r][c] == EXPECTED_TABLE[r][c]
+    )
+    recovery = found / len(expected_cells)
+    assert recovery == 1.0, f"cell recovery {recovery:.2f}: got {table}"
 
 
 def test_scanned_sample_exists():
