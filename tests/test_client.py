@@ -119,3 +119,41 @@ def test_export_openapi_schema():
     schema = main.app.openapi()
     assert "openapi" in schema
     assert "/api/v1/documents" in schema["paths"]
+
+
+# -- CLI -------------------------------------------------------------------- #
+from pdfto_client import main as cli_main  # noqa: E402
+
+
+def test_cli_health(base_url, capsys):
+    rc = cli_main(["--server", base_url, "health"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert '"status"' in out and "ok" in out
+
+
+def test_cli_convert_stdout(base_url, pdf, capsysbinary):
+    rc = cli_main(["--server", base_url, "convert", str(pdf), "-f", "text"])
+    assert rc == 0
+    assert b"# md text" in capsysbinary.readouterr().out
+
+
+def test_cli_convert_to_file(base_url, pdf, tmp_path):
+    out = tmp_path / "out.md"
+    rc = cli_main(["--server", base_url, "convert", str(pdf),
+                   "-f", "markdown", "-o", str(out)])
+    assert rc == 0
+    assert out.read_bytes() == b"# md markdown"
+
+
+def test_cli_unreachable_server_returns_1(pdf, capsys):
+    rc = cli_main(["--server", "http://127.0.0.1:1", "convert", str(pdf)])
+    assert rc == 1
+    assert "error:" in capsys.readouterr().err
+
+
+def test_cli_version():
+    import pytest as _pytest
+    with _pytest.raises(SystemExit) as exc:
+        cli_main(["--version"])
+    assert exc.value.code == 0

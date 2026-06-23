@@ -17,5 +17,8 @@ dependencies = []
 Homepage = "https://github.com/hidyon/pdfto"
 Source = "https://github.com/hidyon/pdfto/tree/main/client/python"
 
+[project.scripts]
+pdfto = "pdfto_client:main"
+
 [tool.setuptools]
 py-modules = ["pdfto_client"]

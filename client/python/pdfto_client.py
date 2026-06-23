@@ -189,3 +189,71 @@ class PDFtoClient:
 
     def get_batch(self, batch_id: str) -> dict:
         return self._request("GET", f"/api/v1/batches/{batch_id}")
+
+
+def main(argv: Optional[list] = None) -> int:
+    """Command-line entry point: a thin wrapper over a PDFto API server.
+
+    Usage examples::
+
+        pdfto health
+        pdfto convert report.pdf -f markdown -o report.md
+        pdfto --server http://host:8000 --api-key KEY convert a.docx
+
+    The server defaults to ``$PDFTO_SERVER`` or ``http://localhost:8000``; the
+    API key to ``$PDFTO_API_KEY``.  Returns 0 on success, 1 on error.
+    """
+    import argparse
+    import os
+    import sys
+
+    parser = argparse.ArgumentParser(
+        prog="pdfto",
+        description="Convert documents via a PDFto API server.",
+    )
+    parser.add_argument("--version", action="version",
+                        version=f"pdfto-client {__version__}")
+    parser.add_argument(
+        "--server", default=os.environ.get("PDFTO_SERVER", "http://localhost:8000"),
+        help="PDFto server URL (default: $PDFTO_SERVER or http://localhost:8000)")
+    parser.add_argument(
+        "--api-key", default=os.environ.get("PDFTO_API_KEY"),
+        help="API key when the server requires auth (default: $PDFTO_API_KEY)")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    sub.add_parser("health", help="check the server is reachable")
+
+    p_conv = sub.add_parser("convert", help="convert a file (one-shot)")
+    p_conv.add_argument("file", help="path to the document to convert")
+    p_conv.add_argument("-f", "--format", default="markdown",
+                        choices=["markdown", "html", "json", "text"],
+                        help="output format (default: markdown)")
+    p_conv.add_argument("-o", "--output",
+                        help="write to this path (default: stdout)")
+    p_conv.add_argument("--ocr", action="store_true", help="enable OCR")
+    p_conv.add_argument("--no-table", action="store_true",
+                        help="disable table-structure recovery")
+
+    args = parser.parse_args(argv)
+    client = PDFtoClient(args.server, api_key=args.api_key)
+
+    try:
+        if args.command == "health":
+            sys.stdout.write(json.dumps(client.health()) + "\n")
+        elif args.command == "convert":
+            data = client.convert_oneshot(
+                args.file, output_format=args.format, do_ocr=args.ocr,
+                do_table_structure=not args.no_table,
+            )
+            if args.output:
+                Path(args.output).write_bytes(data)
+            else:
+                sys.stdout.buffer.write(data)
+    except (PDFtoError, OSError) as exc:
+        sys.stderr.write(f"error: {exc}\n")
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

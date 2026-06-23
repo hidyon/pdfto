@@ -22,6 +22,23 @@ print(pdfto_client.__version__)
 from pdfto_client import PDFtoClient, PDFtoError
 ```
 
+## CLI（`pdfto` コマンド）
+
+インストールすると `pdfto` コマンドが使えます。動作中の PDFto API サーバ（ローカルで
+`uvicorn app.main:app` か `docker run`、既定 `http://localhost:8000`）に対して変換します。
+
+```bash
+pdfto health                                   # サーバ疎通確認
+pdfto convert report.pdf -f markdown -o out.md # ファイルへ出力
+pdfto convert report.pdf -f json               # stdout へ出力
+pdfto convert scan.png --ocr -o scan.md        # 画像を OCR して変換
+pdfto --server http://host:8000 --api-key KEY convert a.docx
+```
+
+サーバ URL は `--server`（既定 `$PDFTO_SERVER`）、API キーは `--api-key`（既定
+`$PDFTO_API_KEY`）で指定します。`-f/--format` は markdown/html/json/text、`--no-table` で
+表構造復元を無効化。正常時は終了コード 0、エラー時は 1 を返します。
+
 ```python
 from pdfto_client import PDFtoClient
 

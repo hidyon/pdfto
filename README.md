@@ -220,6 +220,13 @@ markdown = client.convert_file("report.pdf", output_format="markdown")
 open("report.md", "wb").write(markdown)
 ```
 
+インストールすると **`pdfto` コマンド**も使えます（動作中の API サーバに対して変換）:
+
+```bash
+pdfto health
+pdfto convert report.pdf -f markdown -o report.md
+```
+
 詳しくは [client/python/README.md](client/python/README.md) を参照。
 
 ### 他言語（OpenAPI から生成）
