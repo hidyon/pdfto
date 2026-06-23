@@ -209,10 +209,10 @@ def _apply_llm(content: str, options) -> str:
     return content
 
 
-def _conversion_work(doc_id: str, pdf_path, options):
+def _conversion_work(doc_id: str, source_path, options):
     """Build the job's work closure: convert, persist, return result fields."""
     def work() -> dict:
-        converted = convert(pdf_path, options, storage.doc_dir(doc_id))
+        converted = convert(source_path, options, storage.doc_dir(doc_id))
         content = _apply_llm(converted.content, options)
         output = storage.add_output(
             doc_id, content, converted.output_format,
@@ -323,7 +323,7 @@ def convert_document(
             raise HTTPException(422, error)
 
     options = apply_answers(answers or {})
-    work = _conversion_work(doc_id, record.pdf_path, options)
+    work = _conversion_work(doc_id, record.source_path, options)
     return jobs.submit(doc_id, options.output_format, work, callback_url=callback_url,
                        options_json=options.model_dump_json())
 
@@ -367,7 +367,7 @@ def retry_job(job_id: str) -> Job:
     if record is None:
         raise HTTPException(409, "source document no longer exists")
     options = ConversionOptions.model_validate_json(info["options_json"])
-    work = _conversion_work(record.id, record.pdf_path, options)
+    work = _conversion_work(record.id, record.source_path, options)
     return jobs.submit(record.id, options.output_format, work,
                        callback_url=info["callback_url"],
                        options_json=info["options_json"])
@@ -467,7 +467,7 @@ async def convert_oneshot(
     })
     try:
         converted = await run_in_threadpool(
-            convert, record.pdf_path, options, storage.doc_dir(record.id)
+            convert, record.source_path, options, storage.doc_dir(record.id)
         )
     except ConversionError as exc:
         raise HTTPException(422, str(exc)) from exc
@@ -537,7 +537,7 @@ async def create_batch(
     items: list[BatchItem] = []
     for filename, data, analysis in prepared:
         record = storage.create_document(filename, data, analysis)
-        work = _conversion_work(record.id, record.pdf_path, options)
+        work = _conversion_work(record.id, record.source_path, options)
         job = jobs.submit(record.id, options.output_format, work,
                           callback_url=callback_url, batch_id=batch_id,
                           options_json=options.model_dump_json())

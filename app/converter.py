@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Optional
 
 from .config import settings
+from .formats import extension_of, is_pdf
 from .models import ConversionOptions, ImageMode, OutputFormat, TableMode
 
 
@@ -147,17 +148,19 @@ def _export_referenced(document, is_html: bool) -> tuple[str, dict]:
         return content, assets
 
 
-def convert(pdf_path: str | Path, options: ConversionOptions,
+def convert(source_path: str | Path, options: ConversionOptions,
             image_dir: Optional[str | Path] = None) -> ConvertedDocument:
-    """Convert *pdf_path* according to *options*.
+    """Convert *source_path* according to *options*.
 
-    Raises :class:`ConversionError` (never a raw docling exception) on failure so
-    the web layer can map it to a clean HTTP response.
+    The input may be any format docling supports (PDF/Office/HTML/image/...);
+    the format is detected from the file extension.  Raises
+    :class:`ConversionError` (never a raw docling exception) on failure so the
+    web layer can map it to a clean HTTP response.
     """
 
-    pdf_path = Path(pdf_path)
-    if not pdf_path.exists():
-        raise ConversionError(f"file not found: {pdf_path}")
+    source_path = Path(source_path)
+    if not source_path.exists():
+        raise ConversionError(f"file not found: {source_path}")
 
     generate_images = options.image_mode in (ImageMode.embedded, ImageMode.referenced)
     try:
@@ -176,13 +179,15 @@ def convert(pdf_path: str | Path, options: ConversionOptions,
         ) from exc
 
     convert_kwargs = {}
-    if options.page_start is not None or options.page_end is not None:
+    # Page ranges only apply to paginated input (PDF); other formats ignore them.
+    if is_pdf(extension_of(source_path.name)) and (
+            options.page_start is not None or options.page_end is not None):
         start = options.page_start or 1
         end = options.page_end or 10**9
         convert_kwargs["page_range"] = (start, end)
 
     try:
-        result = converter.convert(str(pdf_path), **convert_kwargs)
+        result = converter.convert(str(source_path), **convert_kwargs)
     except Exception as exc:  # noqa: BLE001 - normalise to ConversionError
         raise ConversionError(f"conversion failed: {exc}") from exc
 

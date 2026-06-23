@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Optional
 
 from .db import Database
+from .formats import extension_of
 from .models import DocumentAnalysis, OutputFormat
 
 
@@ -31,7 +32,10 @@ class OutputRecord:
 class DocumentRecord:
     id: str
     filename: str
-    pdf_path: Path
+    # On-disk path of the uploaded source (any supported format, not only PDF).
+    # The DB column is historically named ``pdf_path``; the value is the real
+    # source path with its actual extension.
+    source_path: Path
     analysis: DocumentAnalysis
     created_at: float = field(default_factory=time.time)
 
@@ -53,16 +57,17 @@ class Storage:
         doc_id = uuid.uuid4().hex
         d = self.doc_dir(doc_id)
         d.mkdir(parents=True, exist_ok=True)
-        pdf_path = d / "source.pdf"
-        pdf_path.write_bytes(data)
+        # Keep the real extension so docling can detect the format on convert.
+        source_path = d / f"source{extension_of(filename) or '.pdf'}"
+        source_path.write_bytes(data)
         created_at = time.time()
         self.db.execute(
             "INSERT INTO documents (id, filename, pdf_path, analysis_json, created_at)"
             " VALUES (?, ?, ?, ?, ?)",
-            (doc_id, filename, str(pdf_path), analysis.model_dump_json(), created_at),
+            (doc_id, filename, str(source_path), analysis.model_dump_json(), created_at),
         )
         return DocumentRecord(
-            id=doc_id, filename=filename, pdf_path=pdf_path,
+            id=doc_id, filename=filename, source_path=source_path,
             analysis=analysis, created_at=created_at,
         )
 
@@ -77,7 +82,7 @@ class Storage:
         return DocumentRecord(
             id=row["id"],
             filename=row["filename"],
-            pdf_path=Path(row["pdf_path"]),
+            source_path=Path(row["pdf_path"]),
             analysis=DocumentAnalysis.model_validate_json(row["analysis_json"]),
             created_at=row["created_at"],
         )

@@ -92,3 +92,39 @@ def test_convert_artifacts_path_none_by_default(tmp_path, monkeypatch):
     conv.convert(pdf, ConversionOptions())
 
     assert captured["artifacts_path"] is None
+
+
+class _CapturingConverter:
+    """Records the kwargs passed to ``convert`` (e.g. page_range)."""
+
+    def __init__(self, sink):
+        self._sink = sink
+
+    def convert(self, src, **kw):
+        self._sink.update(kw)
+        return _FakeResult()
+
+
+def _convert_capturing(monkeypatch, path, options):
+    convert_kwargs: dict = {}
+    monkeypatch.setattr(conv, "_get_converter",
+                        lambda **k: _CapturingConverter(convert_kwargs))
+    monkeypatch.setattr(settings, "docling_artifacts", None)
+    conv.convert(path, options)
+    return convert_kwargs
+
+
+def test_page_range_applied_for_pdf(tmp_path, monkeypatch):
+    pdf = tmp_path / "x.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    kw = _convert_capturing(monkeypatch, pdf,
+                            ConversionOptions(page_start=2, page_end=5))
+    assert kw["page_range"] == (2, 5)
+
+
+def test_page_range_ignored_for_non_pdf(tmp_path, monkeypatch):
+    docx = tmp_path / "x.docx"
+    docx.write_bytes(b"PK\x03\x04")  # zip magic; never actually parsed (fake)
+    kw = _convert_capturing(monkeypatch, docx,
+                            ConversionOptions(page_start=2, page_end=5))
+    assert "page_range" not in kw
