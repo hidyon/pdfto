@@ -32,7 +32,8 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from . import __version__
-from .analysis import analyze_pdf
+from .analysis import analyze
+from .formats import SUPPORTED_EXTENSIONS, extension_of, is_pdf, is_supported
 from .cleanup import PeriodicCleaner
 from .config import settings
 from .converter import ConversionError, convert
@@ -179,26 +180,28 @@ _STATIC_DIR = Path(__file__).parent / "static"
 # Helpers
 # --------------------------------------------------------------------------- #
 async def _read_upload(file: UploadFile) -> bytes:
-    if file.content_type not in (None, "application/pdf", "application/octet-stream"):
-        # Be lenient: some clients send odd content types, but reject obvious
-        # non-PDFs early.
-        if not (file.filename or "").lower().endswith(".pdf"):
-            raise HTTPException(415, "only PDF files are supported")
+    # Validate by extension against the supported set (content types are
+    # unreliable across clients).
+    ext = extension_of(file.filename or "")
+    if not is_supported(ext):
+        supported = ", ".join(sorted(SUPPORTED_EXTENSIONS))
+        raise HTTPException(415, f"unsupported file type; supported: {supported}")
     data = await file.read()
     if not data:
         raise HTTPException(400, "empty file")
     if len(data) > settings.max_upload_bytes:
         raise HTTPException(413, f"file exceeds {settings.max_upload_mb} MB limit")
-    if not data.startswith(b"%PDF"):
+    if is_pdf(ext) and not data.startswith(b"%PDF"):
         raise HTTPException(415, "file does not look like a PDF")
     return data
 
 
-def _analyze_bytes(data: bytes) -> DocumentAnalysis:
-    with NamedTemporaryFile(suffix=".pdf", delete=True) as tmp:
+def _analyze_bytes(data: bytes, filename: str) -> DocumentAnalysis:
+    with NamedTemporaryFile(suffix=extension_of(filename) or ".pdf",
+                            delete=True) as tmp:
         tmp.write(data)
         tmp.flush()
-        return analyze_pdf(tmp.name)
+        return analyze(tmp.name, filename)
 
 
 def _apply_llm(content: str, options) -> str:
@@ -242,12 +245,13 @@ async def upload_document(file: UploadFile = File(...)) -> DocumentResponse:
     """Upload a PDF, analyse it, and return the questions to ask."""
 
     data = await _read_upload(file)
+    filename = file.filename or "document.pdf"
     try:
-        analysis = _analyze_bytes(data)
+        analysis = _analyze_bytes(data, filename)
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(400, f"could not read PDF: {exc}") from exc
+        raise HTTPException(400, f"could not read document: {exc}") from exc
 
-    record = storage.create_document(file.filename or "document.pdf", data, analysis)
+    record = storage.create_document(filename, data, analysis)
     return DocumentResponse(
         id=record.id,
         filename=record.filename,
@@ -451,11 +455,12 @@ async def convert_oneshot(
     """
 
     data = await _read_upload(file)
+    filename = file.filename or "document.pdf"
     try:
-        analysis = _analyze_bytes(data)
+        analysis = _analyze_bytes(data, filename)
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(400, f"could not read PDF: {exc}") from exc
-    record = storage.create_document(file.filename or "document.pdf", data, analysis)
+        raise HTTPException(400, f"could not read document: {exc}") from exc
+    record = storage.create_document(filename, data, analysis)
 
     options = apply_answers({
         "output_format": output_format.value,
@@ -521,9 +526,9 @@ async def create_batch(
         data = await _read_upload(f)
         filename = f.filename or "document.pdf"
         try:
-            analysis = _analyze_bytes(data)
+            analysis = _analyze_bytes(data, filename)
         except Exception as exc:  # noqa: BLE001
-            raise HTTPException(400, f"could not read PDF '{filename}': {exc}") from exc
+            raise HTTPException(400, f"could not read document '{filename}': {exc}") from exc
         prepared.append((filename, data, analysis))
 
     options = apply_answers({

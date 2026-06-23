@@ -70,7 +70,7 @@ class ConversionOptions(BaseModel):
 
 
 class DocumentAnalysis(BaseModel):
-    """A lightweight inspection of an uploaded PDF.
+    """A lightweight inspection of an uploaded document.
 
     Produced without running the (expensive) full conversion so we can ask the
     user the right questions up front.
@@ -82,6 +82,8 @@ class DocumentAnalysis(BaseModel):
     has_images: bool
     encrypted: bool
     file_size_bytes: int
+    # Lowercase source extension (e.g. ".pdf", ".docx"); "" if unknown.
+    source_extension: str = ""
 
 
 class QuestionChoice(BaseModel):

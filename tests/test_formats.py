@@ -24,3 +24,13 @@ def test_is_pdf():
     assert formats.is_pdf(".pdf")
     assert formats.is_pdf(".PDF")
     assert not formats.is_pdf(".docx")
+
+
+def test_kind_of():
+    assert formats.kind_of(".pdf") == "pdf"
+    assert formats.kind_of(".PNG") == "image"
+    assert formats.kind_of(".docx") == "office"
+    assert formats.kind_of(".html") == "web"
+    assert formats.kind_of(".md") == "text"
+    assert formats.kind_of(".csv") == "data"
+    assert formats.kind_of(".xyz") == ""

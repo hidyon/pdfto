@@ -13,11 +13,46 @@ from pathlib import Path
 
 from pypdf import PdfReader
 
+from .formats import extension_of, kind_of
 from .models import DocumentAnalysis
 
 # Heuristic: if the average extracted text per page is below this many
 # characters, the document is probably scanned and would benefit from OCR.
 _MIN_CHARS_PER_PAGE = 32
+
+
+def analyze(path: str | Path, filename: str) -> DocumentAnalysis:
+    """Inspect *path* and return a :class:`DocumentAnalysis` for any format.
+
+    PDFs get the full ``pypdf`` inspection; other formats get cheap,
+    format-appropriate defaults (no heavy parsing) so the right questions can
+    be asked.  *filename* supplies the extension used to pick the strategy.
+    """
+
+    path = Path(path)
+    ext = extension_of(filename)
+    kind = kind_of(ext)
+
+    if kind == "pdf":
+        analysis = analyze_pdf(path)
+        analysis.source_extension = ext
+        return analysis
+
+    size = path.stat().st_size
+    if kind == "image":
+        # A single rasterised page; OCR is needed to recover any text.
+        return DocumentAnalysis(
+            page_count=1, has_extractable_text=False, likely_scanned=True,
+            has_images=True, encrypted=False, file_size_bytes=size,
+            source_extension=ext,
+        )
+    # Office / HTML / Markdown / CSV: text is extractable; docling handles
+    # tables and images natively, so no OCR/table/page questions are needed.
+    return DocumentAnalysis(
+        page_count=0, has_extractable_text=True, likely_scanned=False,
+        has_images=False, encrypted=False, file_size_bytes=size,
+        source_extension=ext,
+    )
 
 
 def analyze_pdf(path: str | Path) -> DocumentAnalysis:

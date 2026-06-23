@@ -136,6 +136,23 @@ def test_table_doc_quality():
     assert recovery == 1.0, f"cell recovery {recovery:.2f}: got {table}"
 
 
+def test_html_input_converts(tmp_path):
+    """A non-PDF input (HTML) converts to Markdown with its table recovered."""
+    from app.converter import convert
+    from app.models import ConversionOptions, OutputFormat
+
+    html = tmp_path / "doc.html"
+    html.write_text(
+        "<html><body><h1>Heading</h1><p>Body text.</p>"
+        "<table><tr><th>A</th><th>B</th></tr><tr><td>1</td><td>2</td></tr></table>"
+        "</body></html>",
+        encoding="utf-8",
+    )
+    result = convert(html, ConversionOptions(output_format=OutputFormat.markdown))
+    assert "Heading" in result.content
+    assert "|" in result.content  # the table survived as a Markdown table
+
+
 def test_scanned_sample_exists():
     assert SCANNED.is_file()
 

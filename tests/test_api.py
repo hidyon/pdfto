@@ -69,6 +69,45 @@ def test_rejects_non_pdf(client):
     assert r.status_code in (415, 400)
 
 
+def test_accepts_docx_and_tailors_questions(client):
+    # Office formats are accepted; analysis needs no docling/pypdf.
+    r = client.post("/api/v1/documents",
+                    files={"file": ("report.docx", b"PK\x03\x04 fake docx",
+                                    "application/octet-stream")})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["analysis"]["source_extension"] == ".docx"
+    qids = {q["id"] for q in body["questions"]}
+    assert "output_format" in qids
+    # OCR / table / page-range questions are PDF/image-specific.
+    assert qids.isdisjoint({"do_ocr", "do_table_structure", "page_range"})
+
+
+def test_accepts_image_and_offers_ocr(client):
+    r = client.post("/api/v1/documents",
+                    files={"file": ("scan.png", b"\x89PNG\r\n fake",
+                                    "image/png")})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["analysis"]["source_extension"] == ".png"
+    qids = {q["id"] for q in body["questions"]}
+    assert "do_ocr" in qids  # images benefit from OCR
+    assert "do_table_structure" in qids  # image goes through the docling pipeline
+
+
+def test_full_flow_docx(client):
+    """A non-PDF upload converts end-to-end (convert is mocked)."""
+    r = client.post("/api/v1/documents",
+                    files={"file": ("report.docx", b"PK\x03\x04 fake",
+                                    "application/octet-stream")})
+    doc_id = r.json()["id"]
+    r = client.post(f"/api/v1/documents/{doc_id}/convert",
+                    json={"output_format": "markdown"})
+    assert r.status_code == 202, r.text
+    job = _wait_for_job(client, r.json()["id"])
+    assert job["status"] == "succeeded"
+
+
 def test_full_flow(client, text_pdf):
     # 1. upload
     r = client.post("/api/v1/documents",

@@ -8,6 +8,7 @@ and so on.  Each question's ``id`` matches a field on
 
 from __future__ import annotations
 
+from .formats import kind_of
 from .models import (
     ConversionOptions,
     DocumentAnalysis,
@@ -38,66 +39,74 @@ def build_questions(analysis: DocumentAnalysis) -> list[Question]:
         )
     ]
 
-    # OCR — only worth asking when text extraction looked poor.
-    if analysis.likely_scanned or not analysis.has_extractable_text:
-        ocr_default = True
-        ocr_help = "テキストが抽出できませんでした。スキャン文書の可能性が高いため、OCR を推奨します。"
-    else:
-        ocr_default = False
-        ocr_help = "通常は不要です。画像内の文字も読み取りたい場合のみ有効化してください。"
-    questions.append(
-        Question(
-            id="do_ocr",
-            type="boolean",
-            prompt="OCR（画像からの文字認識）を行いますか？",
-            help=ocr_help,
-            default=ocr_default,
-        )
-    )
-    # OCR language selection — only relevant when OCR is on the table.
-    if analysis.likely_scanned or not analysis.has_extractable_text:
+    # OCR and table-structure questions only apply to formats that go through
+    # the docling PDF/image pipeline.  Office/HTML/etc. extract text and tables
+    # natively, so OCR/table options have no effect there.  An unknown
+    # extension ("" for legacy/PDF-only analyses) is treated as PDF.
+    pipeline_input = kind_of(analysis.source_extension or ".pdf") in ("pdf", "image")
+
+    if pipeline_input:
+        # OCR — only worth asking when text extraction looked poor.
+        if analysis.likely_scanned or not analysis.has_extractable_text:
+            ocr_default = True
+            ocr_help = "テキストが抽出できませんでした。スキャン文書の可能性が高いため、OCR を推奨します。"
+        else:
+            ocr_default = False
+            ocr_help = "通常は不要です。画像内の文字も読み取りたい場合のみ有効化してください。"
         questions.append(
             Question(
-                id="ocr_languages",
-                type="multichoice",
-                prompt="OCR の言語は？（複数選択可）",
-                help="OCR を行う場合の対象言語。文書の言語に合わせて選んでください。",
-                default=["ja", "en"],
+                id="do_ocr",
+                type="boolean",
+                prompt="OCR（画像からの文字認識）を行いますか？",
+                help=ocr_help,
+                default=ocr_default,
+            )
+        )
+        # OCR language selection — only relevant when OCR is on the table.
+        if analysis.likely_scanned or not analysis.has_extractable_text:
+            questions.append(
+                Question(
+                    id="ocr_languages",
+                    type="multichoice",
+                    prompt="OCR の言語は？（複数選択可）",
+                    help="OCR を行う場合の対象言語。文書の言語に合わせて選んでください。",
+                    default=["ja", "en"],
+                    choices=[
+                        QuestionChoice(value="en", label="English"),
+                        QuestionChoice(value="ja", label="日本語"),
+                        QuestionChoice(value="ch_sim", label="简体中文"),
+                        QuestionChoice(value="ko", label="한국어"),
+                        QuestionChoice(value="fr", label="Français"),
+                        QuestionChoice(value="de", label="Deutsch"),
+                        QuestionChoice(value="es", label="Español"),
+                    ],
+                )
+            )
+
+    # Table structure recovery (same PDF/image pipeline condition).
+    if pipeline_input:
+        questions.append(
+            Question(
+                id="do_table_structure",
+                type="boolean",
+                prompt="表の構造を復元しますか？",
+                help="表を含む文書では有効を推奨します（処理は少し重くなります）。",
+                default=True,
+            )
+        )
+        questions.append(
+            Question(
+                id="table_mode",
+                type="choice",
+                prompt="表抽出の精度は？",
+                help="accurate は精度重視、fast は速度重視。表構造を復元する場合に有効です。",
+                default=TableMode.accurate.value,
                 choices=[
-                    QuestionChoice(value="en", label="English"),
-                    QuestionChoice(value="ja", label="日本語"),
-                    QuestionChoice(value="ch_sim", label="简体中文"),
-                    QuestionChoice(value="ko", label="한국어"),
-                    QuestionChoice(value="fr", label="Français"),
-                    QuestionChoice(value="de", label="Deutsch"),
-                    QuestionChoice(value="es", label="Español"),
+                    QuestionChoice(value=TableMode.accurate.value, label="高精度 (accurate)"),
+                    QuestionChoice(value=TableMode.fast.value, label="高速 (fast)"),
                 ],
             )
         )
-
-    # Table structure recovery.
-    questions.append(
-        Question(
-            id="do_table_structure",
-            type="boolean",
-            prompt="表の構造を復元しますか？",
-            help="表を含む文書では有効を推奨します（処理は少し重くなります）。",
-            default=True,
-        )
-    )
-    questions.append(
-        Question(
-            id="table_mode",
-            type="choice",
-            prompt="表抽出の精度は？",
-            help="accurate は精度重視、fast は速度重視。表構造を復元する場合に有効です。",
-            default=TableMode.accurate.value,
-            choices=[
-                QuestionChoice(value=TableMode.accurate.value, label="高精度 (accurate)"),
-                QuestionChoice(value=TableMode.fast.value, label="高速 (fast)"),
-            ],
-        )
-    )
 
     # Image handling — only relevant when images are present.
     if analysis.has_images:

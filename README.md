@@ -1,17 +1,25 @@
 # PDFto
 
-PDF を **Markdown / HTML / JSON / プレーンテキスト** に変換するアプリです。
-PDF の内容を解析し、**内容に応じた質問**（OCR は必要か、ページ範囲は、画像の扱いは…）に
+文書（**PDF / Word / PowerPoint / Excel / HTML / 画像**など）を
+**Markdown / HTML / JSON / プレーンテキスト** に変換するアプリです。
+内容を解析し、**形式に応じた質問**（OCR は必要か、ページ範囲は、画像の扱いは…）に
 答えるだけで変換でき、結果は**ダウンロード**できます。
 
 変換エンジンには無料の OSS [docling](https://github.com/docling-project/docling) を使用しています。
+
+### 対応入力形式
+
+PDF, Word (`.docx`), PowerPoint (`.pptx`), Excel (`.xlsx`), HTML (`.html`/`.htm`),
+Markdown (`.md`), CSV (`.csv`), 画像 (`.png`/`.jpg`/`.jpeg`/`.tif`/`.tiff`/`.bmp`/`.webp`)。
+ページ範囲は PDF のみ、OCR は PDF/画像が対象です（Office/HTML は docling が直接読み取り、
+表もそのまま抽出します）。実際に有効な形式は docling のバックエンド導入状況に依存します。
 
 > **設計方針:** API ファースト。Web UI は REST API の薄いクライアントにすぎないので、
 > 他システムからは API（`/docs` に OpenAPI ドキュメント）を叩くだけで同じことができます。
 
 ## 特長
 
-- **インタラクティブ変換** — アップロードした PDF を解析し、最適な質問だけを提示
+- **インタラクティブ変換** — アップロードした文書を解析し、形式に応じた質問だけを提示
 - **複数の出力形式** — Markdown / HTML / 構造化 JSON / テキスト
 - **OCR・表構造・画像** — スキャン文書の OCR、表の構造復元、画像の埋め込み/参照に対応
 - **API ファースト** — すべての機能を REST API として公開（自動 OpenAPI ドキュメント付き）

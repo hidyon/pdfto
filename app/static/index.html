@@ -9,7 +9,7 @@
 <body>
   <header>
     <h1>PDFto</h1>
-    <p class="tagline">PDF をアップロードして、いくつかの質問に答えるだけ。Markdown / HTML / JSON / テキストに変換します。</p>
+    <p class="tagline">文書（PDF / Word / PowerPoint / Excel / HTML / 画像）をアップロードして、いくつかの質問に答えるだけ。Markdown / HTML / JSON / テキストに変換します。</p>
     <p class="api-hint">他システムからは REST API（<a href="/docs" target="_blank" rel="noopener">/docs</a>）でも利用できます。</p>
     <div class="api-key-row">
       <input id="api-key" type="password" autocomplete="off"
@@ -20,10 +20,10 @@
   <main>
     <!-- Step 1: upload -->
     <section id="step-upload" class="card">
-      <h2>1. PDF を選択</h2>
+      <h2>1. ファイルを選択</h2>
       <label id="dropzone" class="dropzone">
-        <input type="file" id="file-input" accept="application/pdf,.pdf" hidden />
-        <span id="dropzone-text">クリックして PDF を選択（またはドラッグ＆ドロップ）</span>
+        <input type="file" id="file-input" accept=".pdf,.docx,.pptx,.xlsx,.html,.htm,.md,.csv,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp" hidden />
+        <span id="dropzone-text">クリックしてファイルを選択（またはドラッグ＆ドロップ）</span>
       </label>
       <p id="upload-status" class="status"></p>
     </section>
@@ -43,7 +43,7 @@
       <div class="result-actions">
         <a id="download-link" class="button" href="#" download>ダウンロード</a>
         <a id="download-zip" class="button secondary hidden" href="#" download>ZIP（画像同梱）</a>
-        <button id="restart-btn" type="button" class="secondary">別のPDFを変換</button>
+        <button id="restart-btn" type="button" class="secondary">別のファイルを変換</button>
       </div>
       <pre id="preview" class="preview"></pre>
       <p id="truncated-note" class="status hidden">※ プレビューは先頭部分のみ表示しています。全文はダウンロードしてください。</p>
@@ -51,10 +51,10 @@
 
     <!-- Batch -->
     <section id="batch" class="card">
-      <h2>バッチ変換（複数 PDF）</h2>
+      <h2>バッチ変換（複数ファイル）</h2>
       <label id="batch-dropzone" class="dropzone">
-        <input type="file" id="batch-input" accept="application/pdf,.pdf" multiple hidden />
-        <span id="batch-dropzone-text">クリックして複数の PDF を選択</span>
+        <input type="file" id="batch-input" accept=".pdf,.docx,.pptx,.xlsx,.html,.htm,.md,.csv,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp" multiple hidden />
+        <span id="batch-dropzone-text">クリックして複数のファイルを選択</span>
       </label>
       <div class="batch-options">
         <label>出力形式

@@ -34,3 +34,26 @@ def is_supported(ext: str) -> bool:
 def is_pdf(ext: str) -> bool:
     """Whether *ext* denotes a PDF (the only format with page ranges)."""
     return ext.lower() == ".pdf"
+
+
+_KINDS = {
+    "pdf": {".pdf"},
+    "image": {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"},
+    "office": {".docx", ".pptx", ".xlsx"},
+    "web": {".html", ".htm"},
+    "text": {".md"},
+    "data": {".csv"},
+}
+
+
+def kind_of(ext: str) -> str:
+    """Group *ext* into a coarse kind used to tailor the questions.
+
+    Returns one of ``pdf`` / ``image`` / ``office`` / ``web`` / ``text`` /
+    ``data``, or ``""`` for an unknown extension.
+    """
+    ext = ext.lower()
+    for kind, exts in _KINDS.items():
+        if ext in exts:
+            return kind
+    return ""
