@@ -17,9 +17,6 @@ Markdown (`.md`), CSV (`.csv`), 画像 (`.png`/`.jpg`/`.jpeg`/`.tif`/`.tiff`/`.b
 > **設計方針:** API ファースト。Web UI は REST API の薄いクライアントにすぎないので、
 > 他システムからは API（`/docs` に OpenAPI ドキュメント）を叩くだけで同じことができます。
 
-> **変換サンプル**（紹介用の before/after）は [docs/examples/](docs/examples/) にあります。
-> 1 つの PDF を Markdown / JSON / HTML / テキストへ変換した実例です。
-
 ## 特長
 
 - **インタラクティブ変換** — アップロードした文書を解析し、形式に応じた質問だけを提示
@@ -27,6 +24,47 @@ Markdown (`.md`), CSV (`.csv`), 画像 (`.png`/`.jpg`/`.jpeg`/`.tif`/`.tiff`/`.b
 - **OCR・表構造・画像** — スキャン文書の OCR、表の構造復元、画像の埋め込み/参照に対応
 - **API ファースト** — すべての機能を REST API として公開（自動 OpenAPI ドキュメント付き）
 - **Web UI** — ブラウザだけで完結する操作画面を同梱
+
+## 変換サンプル（before / after）
+
+実際の変換結果を [docs/examples/](docs/examples/) に用意しています（実 docling 変換）。
+
+### 文書 → Markdown
+
+入力 [`showcase.pdf`](docs/examples/showcase.pdf)（2 ページ・見出し／箇条書き／棒グラフ画像／
+2 つの表）を Markdown へ変換すると、見出し・リスト・表・画像参照がそのまま残ります
+（[全文](docs/examples/showcase.md) ・ [JSON](docs/examples/showcase.json) ・
+[HTML](docs/examples/showcase.html)）:
+
+```markdown
+## Highlights
+
+- Total revenue grew 12% quarter over quarter.
+- Widget remained the top performer across all regions.
+
+## Q3 Units by Product
+
+![Image](assets/image_000000_….png)
+
+## Quarterly Revenue by Product
+
+| Product   |   Q1 |   Q2 |   Q3 | YoY   |
+|-----------|------|------|------|-------|
+| Widget    |  100 |  120 |  140 | +18%  |
+| Gadget    |   90 |   85 |   95 | +6%   |
+| Gizmo     |   60 |   75 |   80 | +33%  |
+```
+
+### スキャン画像 → テキスト（OCR）
+
+テキストレイヤーのない画像のみ PDF（[`showcase_ocr.pdf`](docs/examples/showcase_ocr.pdf)）でも、
+OCR を有効にすると文字を復元できます。OCR なしでは 1 文字も取れません:
+
+| OCR なし（[出力](docs/examples/showcase_ocr.no-ocr.txt)） | OCR あり（[出力](docs/examples/showcase_ocr.ocr.txt)） |
+|---|---|
+| （空） | `ACME Supplies Invoice` / `Invoice number: 12345` / `Total due: $157.50` … |
+
+> サンプルは `python scripts/make_showcase.py` で再生成できます。
 
 ## セットアップ
 
