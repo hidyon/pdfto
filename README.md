@@ -17,6 +17,9 @@ Markdown (`.md`), CSV (`.csv`), 画像 (`.png`/`.jpg`/`.jpeg`/`.tif`/`.tiff`/`.b
 > **設計方針:** API ファースト。Web UI は REST API の薄いクライアントにすぎないので、
 > 他システムからは API（`/docs` に OpenAPI ドキュメント）を叩くだけで同じことができます。
 
+> **変換サンプル**（紹介用の before/after）は [docs/examples/](docs/examples/) にあります。
+> 1 つの PDF を Markdown / JSON / HTML / テキストへ変換した実例です。
+
 ## 特長
 
 - **インタラクティブ変換** — アップロードした文書を解析し、形式に応じた質問だけを提示

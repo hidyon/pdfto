@@ -1,0 +1,22 @@
+## Northwind Analytics - Q3 Product Report
+
+This report summarizes product performance for the third quarter. It is provided as a sample document to demonstrate how PDFto converts headings, paragraphs, lists and tables into clean, structured output.
+
+## Highlights
+
+- Total revenue grew 12% quarter over quarter.
+- Widget remained the top performer across all regions.
+- Doohickey dipped slightly and needs attention.
+
+## Quarterly Revenue by Product
+
+The table below lists unit sales by product and fiscal quarter, with year-over-year growth in the final column.
+
+| Product   |   Q1 |   Q2 |   Q3 | YoY   |
+|-----------|------|------|------|-------|
+| Widget    |  100 |  120 |  140 | +18%  |
+| Gadget    |   90 |   85 |   95 | +6%   |
+| Gizmo     |   60 |   75 |   80 | +33%  |
+| Doohickey |   45 |   50 |   48 | -4%   |
+
+Figures are illustrative. Source: internal finance system (sample data).
