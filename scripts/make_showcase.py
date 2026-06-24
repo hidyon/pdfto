@@ -17,7 +17,6 @@ Usage:
 
 import json
 import pathlib
-import re
 
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_LEFT
@@ -188,11 +187,8 @@ def convert_rich(pdf: pathlib.Path) -> None:
         content = result.content
         if fmt is OutputFormat.json:
             content = json.dumps(json.loads(content), ensure_ascii=False, indent=2)
-        # docling's referenced export links images by their (temp) absolute
-        # path; rewrite to a relative assets/<name> so the sample renders.
-        for name in result.assets:
-            content = re.sub(r'[^\s\]\)"\'(]*/' + re.escape(name),
-                             f"assets/{name}", content)
+        # Referenced images already link as relative assets/<name> (the core
+        # handles this; see app/converter._relativize_asset_links).
         (pdf.with_suffix(f".{ext}")).write_text(content, encoding="utf-8")
         for name, data in result.assets.items():
             (assets_dir / name).write_bytes(data)

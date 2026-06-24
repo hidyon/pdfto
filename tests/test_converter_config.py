@@ -128,3 +128,18 @@ def test_page_range_ignored_for_non_pdf(tmp_path, monkeypatch):
     kw = _convert_capturing(monkeypatch, docx,
                             ConversionOptions(page_start=2, page_end=5))
     assert "page_range" not in kw
+
+
+def test_relativize_asset_links():
+    from pathlib import Path
+
+    ad = Path("/tmp/abc123/assets")
+    md = f"# Doc\n\n![img]({ad}/img_000.png)\n"
+    assert conv._relativize_asset_links(md, ad) == "# Doc\n\n![img](assets/img_000.png)\n"
+
+    html = f'<p>x</p><img src="{ad}/pic.png">'
+    assert conv._relativize_asset_links(html, ad) == '<p>x</p><img src="assets/pic.png">'
+
+    # Already-relative content is left untouched.
+    rel = "![img](assets/img_000.png)"
+    assert conv._relativize_asset_links(rel, ad) == rel

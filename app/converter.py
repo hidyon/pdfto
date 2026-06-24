@@ -122,6 +122,16 @@ def _export(document, options: ConversionOptions) -> tuple[str, dict]:
     return document.export_to_markdown(image_mode=image_mode), {}
 
 
+def _relativize_asset_links(content: str, assets_dir: Path) -> str:
+    """Rewrite docling's absolute artifacts-dir paths to relative ``assets/...``.
+
+    ``save_as_markdown/html`` link images by the absolute path of the temp
+    ``assets`` dir; the persisted/zipped output expects a relative
+    ``assets/<name>`` link instead.  A no-op if links are already relative.
+    """
+    return content.replace(str(assets_dir), "assets")
+
+
 def _export_referenced(document, is_html: bool) -> tuple[str, dict]:
     """Save with images written to a sibling ``assets/`` dir; return both."""
 
@@ -139,7 +149,7 @@ def _export_referenced(document, is_html: bool) -> tuple[str, dict]:
         else:
             document.save_as_markdown(out, artifacts_dir=assets_dir,
                                       image_mode=ImageRefMode.REFERENCED)
-        content = out.read_text(encoding="utf-8")
+        content = _relativize_asset_links(out.read_text(encoding="utf-8"), assets_dir)
         assets: dict = {}
         if assets_dir.is_dir():
             for f in sorted(assets_dir.iterdir()):
