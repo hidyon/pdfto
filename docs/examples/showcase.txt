@@ -1,12 +1,14 @@
 Northwind Analytics - Q3 Product Report
 
-This report summarizes product performance for the third quarter. It is provided as a sample document to demonstrate how PDFto converts headings, paragraphs, lists and tables into clean, structured output.
+This report summarizes product performance for the third quarter. It is provided as a sample document to demonstrate how PDFto converts headings, paragraphs, lists, figures and tables into clean, structured output across multiple pages.
 
 Highlights
 
 - Total revenue grew 12% quarter over quarter.
 - Widget remained the top performer across all regions.
 - Doohickey dipped slightly and needs attention.
+
+Q3 Units by Product
 
 Quarterly Revenue by Product
 
@@ -18,5 +20,22 @@ The table below lists unit sales by product and fiscal quarter, with year-over-y
 | Gadget    |   90 |   85 |   95 | +6%   |
 | Gizmo     |   60 |   75 |   80 | +33%  |
 | Doohickey |   45 |   50 |   48 | -4%   |
+
+Regional Breakdown
+
+Revenue, active customers and revenue share by region for the quarter.
+
+| Region        | Revenue   |   Customers | Share   |
+|---------------|-----------|-------------|---------|
+| North America | $1.2M     |         320 | 41%     |
+| Europe        | $0.9M     |         210 | 31%     |
+| Asia Pacific  | $0.7M     |         180 | 24%     |
+| Other         | $0.1M     |          40 | 4%      |
+
+Next Steps
+
+- Expand Gizmo distribution in Asia Pacific.
+- Refresh the Doohickey lineup for Q4.
+- Pilot a loyalty program in North America.
 
 Figures are illustrative. Source: internal finance system (sample data).

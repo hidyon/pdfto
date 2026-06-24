@@ -1,0 +1,9 @@
+ACME Supplies Invoice
+
+Invoice number: 12345 Date: 2026-06-21 Bill to: Northwind Analytics
+
+Item Qty Price Widgets 10 s100.00 Gadgets 5 s45.00 Shipping 1
+
+Total due: $157.50
+
+Thank you for your business:
