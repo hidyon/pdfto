@@ -78,6 +78,36 @@ Thank you for your business:
 > OCR は推定なので軽微な誤り（`$`→`s` など）が出ることがあります。OCR なしでは
 > テキストが 1 文字も取れない（空）点が、OCR の効果を端的に示します。
 
+## 3. 非 PDF の入力（Word / HTML）
+
+PDF だけでなく Word・HTML・画像なども同じように変換できます（M8）。
+
+| 入力 | 出力（Markdown） |
+|---|---|
+| [`sample.docx`](sample.docx)（Word：見出し・箇条書き・表） | [`sample.docx.md`](sample.docx.md) |
+| [`sample.html`](sample.html)（HTML：見出し・リスト・表） | [`sample.html.md`](sample.html.md) |
+
+Word → Markdown の例：
+
+```markdown
+## Project Kickoff Notes
+
+### Agenda
+
+- Scope and goals
+- Timeline and milestones
+
+### Milestones
+
+| Phase   | Owner   | Due   |
+|---------|---------|-------|
+| Design  | Aoi     | Jul 5 |
+| Build   | Ken     | Aug 2 |
+```
+
+> 画像（PNG/JPEG 等）も入力にできます。文字入りの画像は OCR で読み取れます
+> （上の「2. OCR デモ」は画像のみ PDF の例）。
+
 ## 再生成
 
 ```bash

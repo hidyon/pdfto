@@ -64,6 +64,13 @@ OCR を有効にすると文字を復元できます。OCR なしでは 1 文字
 |---|---|
 | （空） | `ACME Supplies Invoice` / `Invoice number: 12345` / `Total due: $157.50` … |
 
+### PDF 以外（Word / HTML / 画像）
+
+PDF 以外も同じように変換できます（[`sample.docx`](docs/examples/sample.docx) →
+[`sample.docx.md`](docs/examples/sample.docx.md) ／ [`sample.html`](docs/examples/sample.html) →
+[`sample.html.md`](docs/examples/sample.html.md)）。見出し・箇条書き・表がそのまま Markdown
+になります。
+
 > サンプルは `python scripts/make_showcase.py` で再生成できます。
 
 ## セットアップ

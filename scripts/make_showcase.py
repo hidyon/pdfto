@@ -212,6 +212,60 @@ def convert_ocr(pdf: pathlib.Path) -> None:
           f"({len(no_ocr.content)} chars — empty without OCR)")
 
 
+def build_docx(path: pathlib.Path) -> None:
+    """A small Word document (heading, paragraph, bullet list, table)."""
+    from docx import Document
+
+    doc = Document()
+    doc.add_heading("Project Kickoff Notes", level=1)
+    doc.add_paragraph(
+        "A short Word document used to show that PDFto converts .docx files, "
+        "not only PDFs.")
+    doc.add_heading("Agenda", level=2)
+    for item in ("Scope and goals", "Timeline and milestones", "Owners and risks"):
+        doc.add_paragraph(item, style="List Bullet")
+    doc.add_heading("Milestones", level=2)
+    table = doc.add_table(rows=1, cols=3)
+    table.style = "Light Grid Accent 1"
+    hdr = table.rows[0].cells
+    hdr[0].text, hdr[1].text, hdr[2].text = "Phase", "Owner", "Due"
+    for phase, owner, due in [("Design", "Aoi", "Jul 5"),
+                              ("Build", "Ken", "Aug 2"),
+                              ("Launch", "Mio", "Sep 1")]:
+        row = table.add_row().cells
+        row[0].text, row[1].text, row[2].text = phase, owner, due
+    doc.save(str(path))
+
+
+def build_html(path: pathlib.Path) -> None:
+    """A small HTML page (heading, paragraph, list, table)."""
+    path.write_text(
+        "<!doctype html><html><head><meta charset='utf-8'>"
+        "<title>Release Notes</title></head><body>"
+        "<h1>Release Notes — v2.1</h1>"
+        "<p>An HTML page used to show that PDFto converts web pages too.</p>"
+        "<h2>Changes</h2><ul>"
+        "<li>Added multi-format input (Word, HTML, images).</li>"
+        "<li>Fixed referenced image links.</li>"
+        "<li>Shipped the <code>pdfto</code> CLI.</li></ul>"
+        "<h2>Compatibility</h2>"
+        "<table><thead><tr><th>Component</th><th>Min version</th></tr></thead>"
+        "<tbody><tr><td>Python</td><td>3.10</td></tr>"
+        "<tr><td>docling</td><td>2.0</td></tr></tbody></table>"
+        "</body></html>",
+        encoding="utf-8")
+
+
+def convert_to_markdown(src: pathlib.Path, out: pathlib.Path) -> None:
+    from app.converter import convert
+    from app.models import ConversionOptions, OutputFormat
+
+    result = convert(src, ConversionOptions(output_format=OutputFormat.markdown,
+                                            do_table_structure=True))
+    out.write_text(result.content, encoding="utf-8")
+    print(f"wrote {out.name}  ({len(result.content)} chars)")
+
+
 def main() -> None:
     import tempfile
 
@@ -231,6 +285,17 @@ def main() -> None:
     build_ocr_pdf(ocr)
     print(f"wrote {ocr}")
     convert_ocr(ocr)
+
+    # Non-PDF inputs (multi-format support, M8).
+    docx = EXAMPLES / "sample.docx"
+    build_docx(docx)
+    print(f"wrote {docx}")
+    convert_to_markdown(docx, EXAMPLES / "sample.docx.md")
+
+    html = EXAMPLES / "sample.html"
+    build_html(html)
+    print(f"wrote {html}")
+    convert_to_markdown(html, EXAMPLES / "sample.html.md")
 
 
 if __name__ == "__main__":
