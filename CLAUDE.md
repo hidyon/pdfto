@@ -7,9 +7,9 @@
 
 ## プロジェクト概要
 
-**PDFto** — PDF を Markdown / HTML / JSON / テキストに変換するアプリ。
-PDF の内容を解析し、内容に応じた質問に答えることで変換オプションを決め、
-結果をダウンロードできる。変換エンジンは無料 OSS の
+**PDFto** — 文書（PDF / Word / PowerPoint / Excel / HTML / 画像など）を
+Markdown / HTML / JSON / テキストに変換するアプリ。内容を解析し、形式に応じた質問に
+答えることで変換オプションを決め、結果をダウンロードできる。変換エンジンは無料 OSS の
 [docling](https://github.com/docling-project/docling)。
 
 **設計の核は API ファースト**。Web UI は REST API の薄いクライアントにすぎず、
@@ -20,9 +20,10 @@ PDF の内容を解析し、内容に応じた質問に答えることで変換�
 
 ```
 app/
-  analysis.py    PDF の軽量解析（pypdf）— 質問の出し分けに使用
+  formats.py     入力形式の allowlist と判定（拡張子→種別。依存ゼロ）
+  analysis.py    文書の軽量解析（PDF は pypdf、他形式は最小解析）— 質問の出し分けに使用
   questions.py   解析結果から質問を生成し、回答をオプションへ変換
-  converter.py   docling を使った変換コア（遅延 import）
+  converter.py   docling を使った変換コア（多形式・遅延 import）
   jobs.py        変換をバックグラウンド実行するジョブ基盤（スレッドプール）
   cleanup.py     期限切れの保存物/ジョブを定期削除する掃除スレッド
   db.py          SQLite 永続化層（索引・ジョブを保存。スレッドセーフ）
@@ -34,7 +35,7 @@ app/
   models.py      API・コアで共有する Pydantic モデル
   main.py        FastAPI アプリ（REST API + Web UI 配信）
   static/        Web UI（HTML/CSS/JS）
-client/python/   依存ゼロの Python クライアント（コピーして使える）
+client/python/   依存ゼロの Python クライアント＋CLI（`pdfto` コマンド）
 scripts/         OpenAPI 書き出し・サンプル PDF 生成等の補助スクリプト
 samples/         変換の検証用サンプル PDF
 tests/           pytest
@@ -43,7 +44,7 @@ docs/
   specs/         機能ごとのスペック（_template.md がテンプレート）
 ```
 
-**コア（`analysis` / `questions` / `converter`）は Web 層から独立**している。
+**コア（`formats` / `analysis` / `questions` / `converter`）は Web 層から独立**している。
 この境界は維持すること（コアが FastAPI などに依存し始めたら設計の劣化）。
 
 ---
