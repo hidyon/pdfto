@@ -110,6 +110,18 @@ def build_questions(analysis: DocumentAnalysis) -> list[Question]:
                 ],
             )
         )
+        # Image preprocessing before OCR — only for image inputs (photos/scans).
+        if kind_of(analysis.source_extension or ".pdf") == "image":
+            questions.append(
+                Question(
+                    id="ocr_preprocess",
+                    type="boolean",
+                    prompt="OCR 前に画像を補正しますか？",
+                    help="ノイズ除去・二値化・拡大を行ってから OCR します。写真や"
+                    "低品質スキャンの読み取り精度が上がることがあります。",
+                    default=False,
+                )
+            )
 
     # Table structure recovery (same PDF/image pipeline condition).
     if pipeline_input:
@@ -190,7 +202,8 @@ def apply_answers(answers: dict) -> ConversionOptions:
 
     data: dict = {}
     for key in ("output_format", "do_ocr", "do_table_structure", "image_mode",
-                "table_mode", "force_full_page_ocr", "do_cell_matching"):
+                "table_mode", "force_full_page_ocr", "do_cell_matching",
+                "ocr_preprocess"):
         if key in answers and answers[key] is not None:
             data[key] = answers[key]
 

@@ -29,6 +29,9 @@ VARIANTS: dict[str, Callable[[ConversionOptions], ConversionOptions]] = {
     "high_res": lambda o: o.model_copy(update={"image_scale": 4.0}),
     "force_ocr": lambda o: o.model_copy(update={"force_full_page_ocr": True}),
     "low_conf": lambda o: o.model_copy(update={"ocr_confidence_threshold": 0.1}),
+    "preprocess": lambda o: o.model_copy(update={"ocr_preprocess": True}),
+    "pp_low_conf": lambda o: o.model_copy(update={
+        "ocr_preprocess": True, "ocr_confidence_threshold": 0.1}),
 }
 
 

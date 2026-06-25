@@ -64,6 +64,18 @@ def test_ocr_strength_maps_to_confidence_threshold():
     assert apply_answers({"ocr_confidence_threshold": 0.05}).ocr_confidence_threshold == 0.05
 
 
+def test_ocr_preprocess_question_only_for_image_input():
+    img = {q.id for q in build_questions(_analysis(source_extension=".jpg"))}
+    pdf = {q.id for q in build_questions(_analysis(source_extension=".pdf"))}
+    assert "ocr_preprocess" in img
+    assert "ocr_preprocess" not in pdf
+
+
+def test_apply_answers_maps_ocr_preprocess():
+    assert apply_answers({"ocr_preprocess": True}).ocr_preprocess is True
+    assert apply_answers({}).ocr_preprocess is False
+
+
 def test_image_question_only_when_images_present():
     qs_no = {q.id for q in build_questions(_analysis(has_images=False))}
     qs_yes = {q.id for q in build_questions(_analysis(has_images=True))}

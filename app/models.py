@@ -70,6 +70,12 @@ class ConversionOptions(BaseModel):
         "recall but more false positives; None uses the engine default (0.5). "
         "Lowering it markedly improves noisy/photographed scans.",
     )
+    ocr_preprocess: bool = Field(
+        default=False,
+        description="Preprocess image inputs (denoise/binarize/upscale) before OCR. "
+        "Improves noisy/photographed scans; ignored for non-image inputs and when "
+        "OCR is off.",
+    )
     image_scale: float = Field(
         default=2.0, ge=1.0, le=4.0,
         description="Render scale for page/figure images (higher = sharper, slower).",

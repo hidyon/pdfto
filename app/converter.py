@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Optional
 
 from .config import settings
-from .formats import extension_of, is_pdf
+from .formats import extension_of, is_pdf, kind_of
 from .models import ConversionOptions, ImageMode, OutputFormat, TableMode
 
 
@@ -223,12 +223,27 @@ def convert(source_path: str | Path, options: ConversionOptions,
         end = options.page_end or 10**9
         convert_kwargs["page_range"] = (start, end)
 
-    try:
-        result = converter.convert(str(source_path), **convert_kwargs)
-    except Exception as exc:  # noqa: BLE001 - normalise to ConversionError
-        raise ConversionError(f"conversion failed: {exc}") from exc
+    # Optionally preprocess image inputs before OCR (denoise/binarize/upscale).
+    # Only meaningful for image inputs that are actually OCR'd; a no-op otherwise.
+    import tempfile
 
-    content, assets = _export(result.document, options)
+    is_image = kind_of(extension_of(source_path.name)) == "image"
+    preprocess = options.ocr_preprocess and options.do_ocr and is_image
+    with tempfile.TemporaryDirectory() as _ppdir:
+        convert_source = source_path
+        if preprocess:
+            from .preprocess import PreprocessError, preprocess_image_for_ocr
+            try:
+                convert_source = preprocess_image_for_ocr(source_path, Path(_ppdir))
+            except PreprocessError as exc:
+                raise ConversionError(str(exc)) from exc
+
+        try:
+            result = converter.convert(str(convert_source), **convert_kwargs)
+        except Exception as exc:  # noqa: BLE001 - normalise to ConversionError
+            raise ConversionError(f"conversion failed: {exc}") from exc
+
+        content, assets = _export(result.document, options)
 
     return ConvertedDocument(
         content=content,
