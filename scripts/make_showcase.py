@@ -256,6 +256,56 @@ def build_html(path: pathlib.Path) -> None:
         encoding="utf-8")
 
 
+def build_pptx(path: pathlib.Path) -> None:
+    """A small PowerPoint deck (title slide + a content slide with bullets)."""
+    from pptx import Presentation
+    from pptx.util import Inches
+
+    prs = Presentation()
+    title_slide = prs.slides.add_slide(prs.slide_layouts[0])
+    title_slide.shapes.title.text = "Q3 Business Review"
+    title_slide.placeholders[1].text = "A sample slide deck converted by PDFto"
+
+    bullet_slide = prs.slides.add_slide(prs.slide_layouts[1])
+    bullet_slide.shapes.title.text = "Highlights"
+    body = bullet_slide.placeholders[1].text_frame
+    body.text = "Revenue grew 12% quarter over quarter"
+    for line in ("Widget led all regions", "Doohickey needs attention",
+                 "Expanding Gizmo in Asia Pacific"):
+        body.add_paragraph().text = line
+
+    table_slide = prs.slides.add_slide(prs.slide_layouts[5])
+    table_slide.shapes.title.text = "Revenue by Region"
+    rows, cols = 4, 3
+    table = table_slide.shapes.add_table(
+        rows, cols, Inches(0.7), Inches(1.8), Inches(8), Inches(2.5)).table
+    for c, head in enumerate(("Region", "Revenue", "Share")):
+        table.cell(0, c).text = head
+    for r, (region, rev, share) in enumerate(
+            [("North America", "$1.2M", "41%"), ("Europe", "$0.9M", "31%"),
+             ("Asia Pacific", "$0.7M", "24%")], start=1):
+        table.cell(r, 0).text = region
+        table.cell(r, 1).text = rev
+        table.cell(r, 2).text = share
+    prs.save(str(path))
+
+
+def build_xlsx(path: pathlib.Path) -> None:
+    """A small Excel workbook (a header row and a few data rows)."""
+    from openpyxl import Workbook
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Revenue"
+    ws.append(["Product", "Q1", "Q2", "Q3", "YoY"])
+    for row in [["Widget", 100, 120, 140, "+18%"],
+                ["Gadget", 90, 85, 95, "+6%"],
+                ["Gizmo", 60, 75, 80, "+33%"],
+                ["Doohickey", 45, 50, 48, "-4%"]]:
+        ws.append(row)
+    wb.save(str(path))
+
+
 def convert_to_markdown(src: pathlib.Path, out: pathlib.Path) -> None:
     from app.converter import convert
     from app.models import ConversionOptions, OutputFormat
@@ -296,6 +346,16 @@ def main() -> None:
     build_html(html)
     print(f"wrote {html}")
     convert_to_markdown(html, EXAMPLES / "sample.html.md")
+
+    pptx = EXAMPLES / "sample.pptx"
+    build_pptx(pptx)
+    print(f"wrote {pptx}")
+    convert_to_markdown(pptx, EXAMPLES / "sample.pptx.md")
+
+    xlsx = EXAMPLES / "sample.xlsx"
+    build_xlsx(xlsx)
+    print(f"wrote {xlsx}")
+    convert_to_markdown(xlsx, EXAMPLES / "sample.xlsx.md")
 
 
 if __name__ == "__main__":

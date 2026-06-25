@@ -64,12 +64,14 @@ OCR を有効にすると文字を復元できます。OCR なしでは 1 文字
 |---|---|
 | （空） | `ACME Supplies Invoice` / `Invoice number: 12345` / `Total due: $157.50` … |
 
-### PDF 以外（Word / HTML / 画像）
+### PDF 以外（Word / PowerPoint / Excel / HTML / 画像）
 
-PDF 以外も同じように変換できます（[`sample.docx`](docs/examples/sample.docx) →
-[`sample.docx.md`](docs/examples/sample.docx.md) ／ [`sample.html`](docs/examples/sample.html) →
-[`sample.html.md`](docs/examples/sample.html.md)）。見出し・箇条書き・表がそのまま Markdown
-になります。
+PDF 以外も同じように変換できます。見出し・箇条書き・表がそのまま Markdown になります:
+
+- Word: [`sample.docx`](docs/examples/sample.docx) → [`.md`](docs/examples/sample.docx.md)
+- PowerPoint: [`sample.pptx`](docs/examples/sample.pptx) → [`.md`](docs/examples/sample.pptx.md)
+- Excel: [`sample.xlsx`](docs/examples/sample.xlsx) → [`.md`](docs/examples/sample.xlsx.md)
+- HTML: [`sample.html`](docs/examples/sample.html) → [`.md`](docs/examples/sample.html.md)
 
 > サンプルは `python scripts/make_showcase.py` で再生成できます。
 

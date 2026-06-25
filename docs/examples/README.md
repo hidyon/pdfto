@@ -86,6 +86,8 @@ PDF だけでなく Word・HTML・画像なども同じように変換できま�
 |---|---|
 | [`sample.docx`](sample.docx)（Word：見出し・箇条書き・表） | [`sample.docx.md`](sample.docx.md) |
 | [`sample.html`](sample.html)（HTML：見出し・リスト・表） | [`sample.html.md`](sample.html.md) |
+| [`sample.pptx`](sample.pptx)（PowerPoint：スライド・箇条書き・表） | [`sample.pptx.md`](sample.pptx.md) |
+| [`sample.xlsx`](sample.xlsx)（Excel：表） | [`sample.xlsx.md`](sample.xlsx.md) |
 
 Word → Markdown の例：
 
