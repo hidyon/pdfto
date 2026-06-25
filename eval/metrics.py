@@ -11,6 +11,7 @@ __all__ = [
     "parse_markdown_table",
     "table_shape",
     "table_cell_recovery",
+    "table_value_recall",
     "token_recall",
 ]
 
@@ -66,6 +67,22 @@ def table_cell_recovery(md: str, expected_rows: list[list[str]]) -> float:
             if r < len(table) and c < len(table[r]) and table[r][c] == want:
                 found += 1
     return found / total
+
+
+def table_value_recall(md: str, expected_values: list[str]) -> float:
+    """Fraction of *expected_values* found anywhere in the first Markdown table.
+
+    Unlike :func:`table_cell_recovery` (strict same-position match), this is
+    position-agnostic: it asks "did each value survive into the table at all".
+    Useful for merged-cell/spanned tables where the flattened cell positions are
+    not well-defined but the data should still be captured.  Returns 0.0..1.0.
+    ``expected_values`` must be non-empty.
+    """
+    if not expected_values:
+        raise ValueError("expected_values must contain at least one value")
+    cells = {c for row in parse_markdown_table(md) for c in row}
+    found = sum(1 for v in expected_values if v in cells)
+    return found / len(expected_values)
 
 
 def token_recall(text: str, tokens: list[str]) -> float:

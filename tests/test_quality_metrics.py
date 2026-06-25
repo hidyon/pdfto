@@ -71,6 +71,20 @@ def test_cell_recovery_rejects_empty_expectation():
         metrics.table_cell_recovery("x", [])
 
 
+# ---- metrics: table_value_recall -------------------------------------------
+
+def test_table_value_recall_is_position_agnostic():
+    # Same values as GOOD_TABLE_MD but order/position differs — still recalled.
+    assert metrics.table_value_recall(GOOD_TABLE_MD, ["Widget", "85", "Q2"]) == 1.0
+    assert metrics.table_value_recall(GOOD_TABLE_MD, ["Widget", "absent"]) == 0.5
+    assert metrics.table_value_recall("no table", ["x"]) == 0.0
+
+
+def test_table_value_recall_rejects_empty():
+    with pytest.raises(ValueError):
+        metrics.table_value_recall("x", [])
+
+
 # ---- metrics: token_recall -------------------------------------------------
 
 def test_token_recall_case_insensitive_substring():

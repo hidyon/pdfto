@@ -40,6 +40,23 @@ PROSE_TOKENS = [
     "quarterly",
 ]
 
+# Mirrors scripts/make_sample_pdfs.py::make_complex_table_sample.  Merged-cell
+# layout has no well-defined flat positions, so we measure value recall (did
+# each datum survive) rather than strict per-position recovery.
+COMPLEX_TABLE_VALUES = [
+    "Region", "H1 2026", "H2 2026", "Q1", "Q2", "Q3", "Q4",
+    "North", "South", "East", "West",
+    "120", "135", "150", "160", "90", "95", "100", "110",
+    "70", "80", "85", "60", "65", "75",
+]
+
+# Mirrors scripts/make_sample_pdfs.py::make_noisy_scan_sample (degraded scan).
+NOISY_SCAN_TOKENS = [
+    "Monthly", "Statement", "Account", "Anderson",
+    "quick", "brown", "fox", "lazy", "dog",
+    "Balance", "Total", "payment",
+]
+
 
 @dataclass(frozen=True)
 class EvalCase:
@@ -73,6 +90,19 @@ def _score_prose(content: str) -> dict[str, float]:
     return {"token_recall": metrics.token_recall(content, PROSE_TOKENS)}
 
 
+def _score_complex_table(content: str) -> dict[str, float]:
+    rows, cols = metrics.table_shape(content)
+    return {
+        "value_recall": metrics.table_value_recall(content, COMPLEX_TABLE_VALUES),
+        "rows": float(rows),
+        "cols": float(cols),
+    }
+
+
+def _score_noisy_scan(content: str) -> dict[str, float]:
+    return {"token_recall": metrics.token_recall(content, NOISY_SCAN_TOKENS)}
+
+
 CASES: list[EvalCase] = [
     EvalCase(
         name="table_doc",
@@ -95,6 +125,21 @@ CASES: list[EvalCase] = [
         options=ConversionOptions(output_format=OutputFormat.markdown),
         score=_score_prose,
         notes="Born-digital prose; measures body-text fidelity.",
+    ),
+    EvalCase(
+        name="complex_table",
+        sample=SAMPLES / "complex_table_sample.pdf",
+        options=ConversionOptions(
+            output_format=OutputFormat.markdown, do_table_structure=True),
+        score=_score_complex_table,
+        notes="Merged-cell header (column/row spans); measures data survival.",
+    ),
+    EvalCase(
+        name="noisy_scan",
+        sample=SAMPLES / "noisy_scan_sample.pdf",
+        options=ConversionOptions(output_format=OutputFormat.markdown, do_ocr=True),
+        score=_score_noisy_scan,
+        notes="Degraded scan (skew/blur/noise/low-res); OCR robustness.",
     ),
 ]
 

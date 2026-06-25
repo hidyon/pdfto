@@ -509,6 +509,9 @@ python -m eval.report --variants baseline,force_ocr --compare baseline force_ocr
 ```
 
 既知のバリアントは `baseline` / `no_cell_match` / `high_res` / `force_ocr`。
+回帰ケースは単純な表・本文・スキャンに加え、**結合セルを含む複雑な表**（`complex_table`）と
+**劣化スキャン**（`noisy_scan`：傾き・ぼかし・ノイズ・低解像度）も含みます。現状値の
+スナップショットは [docs/specs/0030](docs/specs/0030-quality-measurement.md) を参照。
 ケースやバリアントは `eval/cases.py` ・ `eval/report.py` の登録簿に足すだけで拡張できます。
 指標関数（`eval/metrics.py`）自体は docling 不要で、既定 `pytest`（`tests/test_quality_metrics.py`）
 で検証されます。実変換を伴う `python -m eval.report` は手動実行用です。
