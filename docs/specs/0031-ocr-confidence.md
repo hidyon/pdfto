@@ -126,6 +126,27 @@ docling の既定パイプライン（既定 OCR=RapidOCR、threshold 0.5）に�
 画像入力では force すら不要で、しきい値だけで回収できる。`eval` の `low_conf`
 （threshold=0.1）バリアントもこの値を再現する。
 
+### 一般化の検証（実写スキャン 6 枚で横断 A/B）
+
+1 枚では偶然の可能性があるため、SROIE 領収書を **6 枚（000–005）** に拡張し、各 receipt の
+正解（key.json）から token を自動生成して横断で `baseline` vs `low_conf`(threshold=0.1) を実測：
+
+| receipt | baseline | low_conf | Δ |
+|---|---|---|---|
+| sroie_000 | 0.333 | 0.917 | +0.583 |
+| sroie_001 | 0.077 | 0.923 | +0.846 |
+| sroie_002 | 0.526 | 1.000 | +0.474 |
+| sroie_003 | 0.364 | 0.818 | +0.455 |
+| sroie_004 | 0.167 | 0.333 | +0.167 |
+| sroie_005 | 0.818 | 0.818 | +0.000 |
+| **平均** | **0.38** | **0.80** | **+0.42** |
+
+**所見:** confidence を下げる改善は**一般化する**——平均で 0.38→0.80、**6 枚中 5 枚で改善・
+悪化ゼロ**（005 は既に baseline 0.818 で頭打ち、害なし）。残る弱点は sroie_004（0.33）の
+ような特に劣化の激しい個体で、ここは次手（画像前処理 / LLM 補正 / VLM）の対象。
+再現: `python scripts/fetch_external_samples.py` →
+`PDFTO_RUN_DOCLING_TESTS=1 python -m eval.report --include-external --compare baseline low_conf`。
+
 ## 6. テスト計画
 
 - 既定 `pytest`：
