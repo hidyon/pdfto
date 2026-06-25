@@ -494,6 +494,25 @@ PDFTO_RUN_LLM_TESTS=1 ANTHROPIC_API_KEY=sk-ant-... pytest tests/test_quality_llm
 
 サンプルは `python scripts/make_sample_pdfs.py`（reportlab 必要）で再生成できます。
 
+### 変換品質の測定・A/B 比較
+
+精度ノブ（表セルマッチング・フルページ OCR・画像解像度など）の効果を数値で確かめる
+ための土台を `eval/` に用意しています。代表サンプル（`samples/`）を**ノブ設定（バリアント）**
+ごとに実変換し、指標（表のセル回収率・本文/OCR の語句回収率）を並べて比較できます。
+
+```bash
+# 全ケースをベースライン設定で測定
+python -m eval.report
+
+# 2 つのバリアントを比較（例: フルページ OCR の効果を見る）
+python -m eval.report --variants baseline,force_ocr --compare baseline force_ocr
+```
+
+既知のバリアントは `baseline` / `no_cell_match` / `high_res` / `force_ocr`。
+ケースやバリアントは `eval/cases.py` ・ `eval/report.py` の登録簿に足すだけで拡張できます。
+指標関数（`eval/metrics.py`）自体は docling 不要で、既定 `pytest`（`tests/test_quality_metrics.py`）
+で検証されます。実変換を伴う `python -m eval.report` は手動実行用です。
+
 ## ライセンス / クレジット
 
 変換処理は [docling](https://github.com/docling-project/docling)（MIT License）に依存しています。

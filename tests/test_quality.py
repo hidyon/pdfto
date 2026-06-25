@@ -15,39 +15,14 @@ import pathlib
 
 import pytest
 
+from eval import metrics
+from eval.cases import EXPECTED_TABLE
+
 RUN = os.environ.get("PDFTO_RUN_DOCLING_TESTS") == "1"
 _SAMPLES = pathlib.Path(__file__).resolve().parents[1] / "samples"
 SAMPLE = _SAMPLES / "table_sample.pdf"
 TABLE_DOC = _SAMPLES / "table_doc_sample.pdf"
 SCANNED = _SAMPLES / "scanned_sample.pdf"
-
-# Must match scripts/make_sample_pdfs.py::make_table_doc_sample.
-EXPECTED_TABLE = [
-    ["Product", "Q1", "Q2", "Q3"],
-    ["Widget", "100", "120", "140"],
-    ["Gadget", "90", "85", "95"],
-    ["Gizmo", "60", "75", "80"],
-    ["Doohickey", "45", "50", "55"],
-]
-
-
-def parse_markdown_table(md: str) -> list[list[str]]:
-    """Return the first Markdown table as rows of stripped cells.
-
-    The ``|---|`` separator row is dropped; cell whitespace is normalised so
-    docling's column padding doesn't affect comparisons.
-    """
-    rows: list[list[str]] = []
-    for line in md.splitlines():
-        if "|" not in line:
-            if rows:
-                break  # table ended
-            continue
-        cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if all(set(c) <= set("-:") and c for c in cells):
-            continue  # separator row
-        rows.append([" ".join(c.split()) for c in cells])
-    return rows
 
 pytestmark = pytest.mark.skipif(
     not RUN, reason="set PDFTO_RUN_DOCLING_TESTS=1 to run real docling conversions"
@@ -110,30 +85,36 @@ def test_page_range_converts():
 def test_table_doc_quality():
     """The document-style table is extracted with full cell recovery.
 
-    Quality metric: parse the Markdown table and assert its shape (4 columns,
-    5 data rows incl. header) and a cell-recovery ratio of 1.0 against the
-    known expected values.
+    Uses the shared metrics (eval.metrics): asserts shape (5 rows x 4 cols) and
+    a cell-recovery ratio of 1.0 against the known expected values.
     """
     from app.converter import convert
     from app.models import ConversionOptions, OutputFormat
 
     result = convert(TABLE_DOC, ConversionOptions(
         output_format=OutputFormat.markdown, do_table_structure=True))
-    table = parse_markdown_table(result.content)
 
-    assert table, "no Markdown table found in output"
-    assert len(table) == len(EXPECTED_TABLE), f"row count: {len(table)}"
-    assert all(len(r) == 4 for r in table), f"column counts: {[len(r) for r in table]}"
+    assert metrics.table_shape(result.content) == (len(EXPECTED_TABLE), 4)
+    recovery = metrics.table_cell_recovery(result.content, EXPECTED_TABLE)
+    assert recovery == 1.0, f"cell recovery {recovery:.2f}: {result.content!r}"
 
-    expected_cells = {(r, c) for r, row in enumerate(EXPECTED_TABLE)
-                      for c in range(len(row))}
-    found = sum(
-        1 for (r, c) in expected_cells
-        if r < len(table) and c < len(table[r])
-        and table[r][c] == EXPECTED_TABLE[r][c]
-    )
-    recovery = found / len(expected_cells)
-    assert recovery == 1.0, f"cell recovery {recovery:.2f}: got {table}"
+
+def test_ab_report_smoke():
+    """The A/B runner produces baseline scores on real conversions (spec 0030).
+
+    Sanity-checks the measurement foundation end-to-end: the baseline variant on
+    the table_doc case recovers every cell, and the prose case recovers its
+    known body-text tokens.
+    """
+    from eval import report
+    from eval.cases import CASES_BY_NAME
+
+    cases = [CASES_BY_NAME["table_doc"], CASES_BY_NAME["prose"]]
+    results = report.run(cases, ["baseline"])
+    scored = {r.case: r.scores for r in results}
+
+    assert scored["table_doc"]["cell_recovery"] == 1.0
+    assert scored["prose"]["token_recall"] == 1.0
 
 
 def test_html_input_converts(tmp_path):

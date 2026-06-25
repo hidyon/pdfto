@@ -83,6 +83,36 @@ def make_table_doc_sample(path: pathlib.Path) -> None:
     doc.build(elems)
 
 
+def make_prose_sample(path: pathlib.Path) -> None:
+    """A born-digital prose page with distinctive tokens for body-text fidelity.
+
+    Used by the quality-measurement foundation (spec 0030): ``token_recall``
+    checks how many of the known phrases survive conversion.  The wording here
+    must stay in sync with ``eval/cases.py::PROSE_TOKENS``.
+    """
+    doc = SimpleDocTemplate(str(path), pagesize=A4)
+    styles = getSampleStyleSheet()
+    elems = [
+        Paragraph("PDFto Prose Fidelity Sample", styles["Title"]),
+        Spacer(1, 18),
+        Paragraph(
+            "This is a born-digital document used to measure body-text "
+            "fidelity. It is not a scan, so no OCR is required to read it.",
+            styles["BodyText"]),
+        Spacer(1, 12),
+        Paragraph(
+            "The capital of Iceland is Reykjavik. Photosynthesis converts "
+            "light into chemical energy. The trail is 42 kilometres long.",
+            styles["BodyText"]),
+        Spacer(1, 12),
+        Paragraph(
+            "The quarterly figures are summarized elsewhere; this page only "
+            "exercises plain paragraph extraction.",
+            styles["BodyText"]),
+    ]
+    doc.build(elems)
+
+
 def make_scanned_sample(path: pathlib.Path) -> None:
     """A rasterized, image-only page (no text layer) — requires OCR to read."""
     from PIL import Image, ImageDraw, ImageFont
@@ -122,6 +152,9 @@ def main() -> None:
     scanned = SAMPLES / "scanned_sample.pdf"
     make_scanned_sample(scanned)
     print(f"wrote {scanned}")
+    prose = SAMPLES / "prose_sample.pdf"
+    make_prose_sample(prose)
+    print(f"wrote {prose}")
 
 
 if __name__ == "__main__":
