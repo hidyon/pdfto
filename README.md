@@ -247,9 +247,14 @@ curl -O "http://localhost:8000/api/v1/documents/<ID>/assets/<filename>"
 | `ocr_languages` | OCR の対象言語（複数可・EasyOCR コード） | `["ja","en"]` |
 | `do_table_structure` | 表構造を復元するか | `true` / `false` |
 | `table_mode` | 表抽出の精度（速度との兼ね合い） | `accurate` / `fast` |
+| `do_cell_matching` | 表セルを検出グリッドに対応付け（表精度向上） | `true` / `false` |
+| `force_full_page_ocr` | テキスト層を無視し全ページ強制 OCR（ハイブリッド PDF 対策・要 OCR） | `true` / `false` |
+| `image_scale` | 画像の描画解像度（高いほど鮮明・低速） | `1.0`〜`4.0`（既定 `2.0`） |
 | `image_mode` | 画像の扱い | `placeholder` / `embedded` / `referenced` |
 | `page_range` | 変換するページ範囲 | `[1, 5]` |
 | `llm_instruction` | 変換後に LLM で整形（要 API キー） | `"日本語に翻訳"` |
+
+> `force_full_page_ocr` は EasyOCR を使い、言語未指定なら英語（`en`）で全ページを OCR します。
 
 ## クライアント / SDK
 

@@ -446,6 +446,9 @@ async def convert_oneshot(
     do_table_structure: bool = Query(default=True),
     table_mode: TableMode = Query(default=TableMode.accurate),
     ocr_languages: list[str] = Query(default=[]),
+    force_full_page_ocr: bool = Query(default=False),
+    do_cell_matching: bool = Query(default=True),
+    image_scale: float = Query(default=2.0, ge=1.0, le=4.0),
     llm_instruction: Optional[str] = Query(default=None),
 ) -> FileResponse:
     """Upload and convert in a single request (no questions).
@@ -468,6 +471,9 @@ async def convert_oneshot(
         "do_table_structure": do_table_structure,
         "table_mode": table_mode.value,
         "ocr_languages": ocr_languages,
+        "force_full_page_ocr": force_full_page_ocr,
+        "do_cell_matching": do_cell_matching,
+        "image_scale": image_scale,
         "llm_instruction": llm_instruction,
     })
     try:

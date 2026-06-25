@@ -29,6 +29,27 @@ def test_non_scanned_doc_defaults_ocr_off():
     assert qs["do_ocr"].default is False
 
 
+def test_force_full_page_ocr_question_for_pdf():
+    qs = {q.id for q in build_questions(_analysis())}
+    assert "force_full_page_ocr" in qs
+
+
+def test_force_full_page_ocr_question_absent_for_office():
+    qs = {q.id for q in build_questions(_analysis(source_extension=".docx"))}
+    assert "force_full_page_ocr" not in qs
+
+
+def test_quality_knobs_mapped():
+    opts = apply_answers({
+        "force_full_page_ocr": True,
+        "do_cell_matching": False,
+        "image_scale": 3.5,
+    })
+    assert opts.force_full_page_ocr is True
+    assert opts.do_cell_matching is False
+    assert opts.image_scale == 3.5
+
+
 def test_image_question_only_when_images_present():
     qs_no = {q.id for q in build_questions(_analysis(has_images=False))}
     qs_yes = {q.id for q in build_questions(_analysis(has_images=True))}

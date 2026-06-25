@@ -82,6 +82,17 @@ def build_questions(analysis: DocumentAnalysis) -> list[Question]:
                     ],
                 )
             )
+        # Full-page OCR — useful for hybrid PDFs with a partial text layer.
+        questions.append(
+            Question(
+                id="force_full_page_ocr",
+                type="boolean",
+                prompt="全ページを強制 OCR しますか？",
+                help="テキスト層を無視して全ページを OCR します。一部だけ文字が埋まった"
+                "ハイブリッド PDF の取りこぼし対策に有効です（処理は重くなります）。",
+                default=False,
+            )
+        )
 
     # Table structure recovery (same PDF/image pipeline condition).
     if pipeline_input:
@@ -161,9 +172,13 @@ def apply_answers(answers: dict) -> ConversionOptions:
     """
 
     data: dict = {}
-    for key in ("output_format", "do_ocr", "do_table_structure", "image_mode", "table_mode"):
+    for key in ("output_format", "do_ocr", "do_table_structure", "image_mode",
+                "table_mode", "force_full_page_ocr", "do_cell_matching"):
         if key in answers and answers[key] is not None:
             data[key] = answers[key]
+
+    if answers.get("image_scale") is not None:
+        data["image_scale"] = float(answers["image_scale"])
 
     langs = answers.get("ocr_languages")
     if isinstance(langs, (list, tuple)):

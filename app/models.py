@@ -55,6 +55,19 @@ class ConversionOptions(BaseModel):
         description="Recover the structure of tables instead of flattening them.",
     )
     table_mode: TableMode = TableMode.accurate
+    do_cell_matching: bool = Field(
+        default=True,
+        description="Match table cells to the detected grid (better table fidelity).",
+    )
+    force_full_page_ocr: bool = Field(
+        default=False,
+        description="OCR every page even where a text layer exists (uses EasyOCR; "
+        "helps hybrid/partial-text PDFs). Defaults to English when no languages set.",
+    )
+    image_scale: float = Field(
+        default=2.0, ge=1.0, le=4.0,
+        description="Render scale for page/figure images (higher = sharper, slower).",
+    )
     image_mode: ImageMode = ImageMode.placeholder
     llm_instruction: Optional[str] = Field(
         default=None,

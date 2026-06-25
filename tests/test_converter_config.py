@@ -130,6 +130,42 @@ def test_page_range_ignored_for_non_pdf(tmp_path, monkeypatch):
     assert "page_range" not in kw
 
 
+def test_quality_knobs_forwarded(tmp_path, monkeypatch):
+    captured: dict = {}
+
+    def fake_get(**kwargs):
+        captured.update(kwargs)
+        return _FakeConverter()
+
+    monkeypatch.setattr(conv, "_get_converter", fake_get)
+    monkeypatch.setattr(settings, "docling_artifacts", None)
+
+    pdf = tmp_path / "x.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    conv.convert(pdf, ConversionOptions(
+        do_ocr=True, force_full_page_ocr=True,
+        do_cell_matching=False, image_scale=3.0))
+
+    assert captured["force_full_page_ocr"] is True
+    assert captured["do_cell_matching"] is False
+    assert captured["image_scale"] == 3.0
+
+
+def test_quality_knobs_defaults(tmp_path, monkeypatch):
+    captured: dict = {}
+    monkeypatch.setattr(conv, "_get_converter",
+                        lambda **k: captured.update(k) or _FakeConverter())
+    monkeypatch.setattr(settings, "docling_artifacts", None)
+
+    pdf = tmp_path / "x.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    conv.convert(pdf, ConversionOptions())
+
+    assert captured["force_full_page_ocr"] is False
+    assert captured["do_cell_matching"] is True
+    assert captured["image_scale"] == 2.0
+
+
 def test_relativize_asset_links():
     from pathlib import Path
 

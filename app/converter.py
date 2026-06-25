@@ -41,10 +41,12 @@ _EXTENSIONS = {
 }
 
 
-@lru_cache(maxsize=8)
+@lru_cache(maxsize=16)
 def _get_converter(do_ocr: bool, do_table_structure: bool, table_mode: str,
                    generate_images: bool, artifacts_path: Optional[str] = None,
-                   ocr_languages: tuple = (), easyocr_models: Optional[str] = None):
+                   ocr_languages: tuple = (), easyocr_models: Optional[str] = None,
+                   do_cell_matching: bool = True, force_full_page_ocr: bool = False,
+                   image_scale: float = 2.0):
     """Build (and cache) a docling ``DocumentConverter`` for a set of options.
 
     docling converters are expensive to construct because they load models, so
@@ -66,10 +68,14 @@ def _get_converter(do_ocr: bool, do_table_structure: bool, table_mode: str,
     if artifacts_path:
         pipeline_options.artifacts_path = artifacts_path
     pipeline_options.do_ocr = do_ocr
-    if do_ocr and ocr_languages:
+    # Build explicit EasyOCR options when languages are requested, or when
+    # full-page OCR is forced (which needs a concrete engine). Otherwise keep
+    # docling's default OCR so existing behaviour is unchanged.
+    if do_ocr and (ocr_languages or force_full_page_ocr):
         # Use EasyOCR so language codes have a stable convention (en/ja/...).
         from docling.datamodel.pipeline_options import EasyOcrOptions
-        ocr_opts = EasyOcrOptions(lang=list(ocr_languages))
+        ocr_opts = EasyOcrOptions(lang=list(ocr_languages) or ["en"],
+                                  force_full_page_ocr=force_full_page_ocr)
         if easyocr_models:
             # Use models baked into the image; never reach the network.
             ocr_opts.model_storage_directory = easyocr_models
@@ -82,9 +88,10 @@ def _get_converter(do_ocr: bool, do_table_structure: bool, table_mode: str,
             if table_mode == TableMode.accurate.value
             else TableFormerMode.FAST
         )
+        pipeline_options.table_structure_options.do_cell_matching = do_cell_matching
+    pipeline_options.images_scale = image_scale
     if generate_images:
         pipeline_options.generate_picture_images = True
-        pipeline_options.images_scale = 2.0
 
     return DocumentConverter(
         format_options={
@@ -182,6 +189,9 @@ def convert(source_path: str | Path, options: ConversionOptions,
             artifacts_path=settings.docling_artifacts,
             ocr_languages=tuple(options.ocr_languages),
             easyocr_models=settings.easyocr_models,
+            do_cell_matching=options.do_cell_matching,
+            force_full_page_ocr=options.force_full_page_ocr,
+            image_scale=options.image_scale,
         )
     except ImportError as exc:  # pragma: no cover - depends on environment
         raise ConversionError(
