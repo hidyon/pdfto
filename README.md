@@ -231,6 +231,12 @@ curl -OJ "http://localhost:8000/api/v1/convert?do_ocr=true&ocr_confidence_thresh
 > （`ocr_confidence_threshold` 未指定→0.1）。なお画像入力にもこの設定が届くよう
 > converter を修正済み（従来は画像入力で OCR 設定が無視されていた）。
 
+画像入力には OCR 前の画像補正 `ocr_preprocess=true`（ノイズ除去・二値化・拡大）も
+指定できます。ただし実写 6 枚での A/B では **平均ではむしろ低下**し、汎用的な改善には
+なりませんでした（spec 0032 §9）。**既定 OFF の任意ツール**として残しており、特定の
+ノイジー画像で個別に効く場合に試す位置づけです。一般的な推奨は上記の
+`ocr_confidence_threshold` です。
+
 > 検証: `PDFTO_RUN_DOCLING_TESTS=1 pytest tests/test_quality.py` で、画像のみの
 > サンプル（`samples/scanned_sample.pdf`）から OCR が本文を抽出することを確認できます。
 

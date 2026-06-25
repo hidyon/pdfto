@@ -209,7 +209,7 @@ API ファーストの最小構成を成立させる。
 | M10-3 | LLM による品質補正プリセット（OCR 修正・整形） | todo | — |
 | M10-4 | 高精度 VLM パイプライン（opt-in・重い） | todo | — |
 | M10-5 | OCR recall 改善（confidence しきい値の公開） | done | [0031](specs/0031-ocr-confidence.md) |
-| M10-6 | OCR 前の画像前処理（denoise/二値化/拡大） | in-progress | [0032](specs/0032-ocr-preprocess.md) |
+| M10-6 | OCR 前の画像前処理（denoise/二値化/拡大）※既定OFF・一般化せず | done | [0032](specs/0032-ocr-preprocess.md) |
 
 ---
 

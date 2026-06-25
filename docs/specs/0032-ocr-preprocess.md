@@ -1,7 +1,7 @@
 # Spec: OCR 前の画像前処理（denoise / 二値化 / 拡大）
 
 - **ID:** 0032
-- **状態:** approved
+- **状態:** done
 - **マイルストーン:** M10 変換品質の向上
 - **関連 issue:** M10-6（OCR 前の画像前処理）
 - **作成日 / 更新日:** 2026-06-25 / 2026-06-25
@@ -103,15 +103,14 @@ ocr_preprocess: bool = Field(
 
 ## 5. 受け入れ条件（Definition of Done）
 
-- [ ] `ocr_preprocess` が `ConversionOptions` にあり、既定 False で現挙動維持。
-- [ ] `app/preprocess.py` の前処理関数が小さな合成画像でテストされる（cv2 実呼び出しは可、
-      モデル DL 不要）。
-- [ ] converter が「画像＋do_ocr＋ocr_preprocess」のときだけ前処理画像を docling に渡す
+- [x] `ocr_preprocess` が `ConversionOptions` にあり、既定 False で現挙動維持。
+- [x] `app/preprocess.py` の前処理関数が小さな合成画像でテストされる（実 cv2・モデル DL 不要）。
+- [x] converter が「画像＋do_ocr＋ocr_preprocess」のときだけ前処理画像を docling に渡す
       （モックで検証）。非画像・OCR 無効では前処理しない。
-- [ ] one-shot API と対話質問から指定できる。
-- [ ] `eval/report.py` に `preprocess` / `pp_low_conf` バリアントがある。
-- [ ] 既定 `pytest` が通る。実写 6 枚で `low_conf` vs `pp_low_conf` を A/B し記録。
-- [ ] README に使い方・適用範囲（画像入力のみ）を記載。
+- [x] one-shot API と対話質問から指定できる。
+- [x] `eval/report.py` に `preprocess` / `pp_low_conf` バリアントがある。
+- [x] 既定 `pytest` 156 passed。実写 6 枚で `low_conf` vs `pp_low_conf` を A/B し記録（§9）。
+- [x] README に使い方・適用範囲（画像入力のみ）と negative result を記載。
 
 ## 6. テスト計画
 
@@ -136,3 +135,30 @@ ocr_preprocess: bool = Field(
 
 - プリセットのパラメータ（h, blockSize, C, 拡大率）は実測で微調整可。
 - 将来、deskew や複数プリセットを足す場合は別 issue で（本 issue は固定 1 本）。
+
+## 9. 実測と結論（重要：前処理は一般化しなかった）
+
+実写 6 枚で `low_conf`（threshold=0.1）に前処理を**上乗せ**して A/B した結果、
+**前処理は平均で recall を下げた**。二値化あり（本実装）・なし（gentle: 拡大＋denoise のみ）の
+両プリセットを検証：
+
+| receipt | low_conf | +二値化前処理 | +gentle前処理 |
+|---|---|---|---|
+| sroie_000 | 0.917 | 1.000 | 0.833 |
+| sroie_001 | 0.923 | 0.692 | 0.769 |
+| sroie_002 | 1.000 | 0.895 | 0.842 |
+| sroie_003 | 0.818 | 0.909 | 0.545 |
+| sroie_004 | 0.333 | 0.222 | 0.167 |
+| sroie_005 | 0.818 | 0.818 | 0.909 |
+| **平均** | **0.80** | 0.76 | 0.68 |
+
+**所見:**
+- どちらのプリセットも**平均では low_conf 単独に劣る**（0.80 → 0.76 / 0.68）。
+- 弱点 sroie_004 を**救えない**（むしろ悪化）。個体では有効な例（000 の二値化→1.0、
+  005 の gentle→0.909）もあるが、**汎用的な改善にはならない**。
+- 予備実験で 000 が 0.83→0.92 に伸びたのは、confidence を下げる前の EasyOCR 直呼びでの話。
+  confidence を既に下げた状態では、前処理が文字情報を削って逆効果になりやすい。
+
+**結論:** 前処理は**既定 OFF の任意ツール**として残す（特定画像では有効・eval で個別に
+A/B 可能）が、**推奨ノブは引き続き M10-5 の confidence しきい値**。前処理は既定では使わない。
+この negative result 自体が M10-2 の測定土台の価値（効くと思った施策を数値で棄却できる）を示す。
