@@ -128,6 +128,9 @@ def main(argv: list[str] | None = None) -> int:
         "--cases", default="",
         help="comma-separated case names (default: all)")
     parser.add_argument(
+        "--include-external", action="store_true",
+        help="also include fetched real-world cases (eval.external_cases)")
+    parser.add_argument(
         "--compare", nargs=2, metavar=("BASE", "OTHER"),
         help="also print the per-metric delta between two variants")
     args = parser.parse_args(argv)
@@ -137,10 +140,22 @@ def main(argv: list[str] | None = None) -> int:
         for v in args.compare:
             if v not in variants:
                 variants.append(v)
+    available = dict(CASES_BY_NAME)
+    default_cases = list(CASES)
+    if args.include_external:
+        from eval.external_cases import external_cases
+
+        ext = external_cases()
+        if not ext:
+            print("note: no external samples found; run "
+                  "scripts/fetch_external_samples.py first")
+        default_cases += ext
+        available.update({c.name: c for c in ext})
+
     if args.cases:
-        cases = [CASES_BY_NAME[n.strip()] for n in args.cases.split(",") if n.strip()]
+        cases = [available[n.strip()] for n in args.cases.split(",") if n.strip()]
     else:
-        cases = CASES
+        cases = default_cases
 
     results = run(cases, variants)
     print(format_table(results))

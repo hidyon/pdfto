@@ -513,6 +513,19 @@ python -m eval.report --variants baseline,force_ocr --compare baseline force_ocr
 **劣化スキャン**（`noisy_scan`：傾き・ぼかし・ノイズ・低解像度）も含みます。現状値の
 スナップショットは [docs/specs/0030](docs/specs/0030-quality-measurement.md) を参照。
 ケースやバリアントは `eval/cases.py` ・ `eval/report.py` の登録簿に足すだけで拡張できます。
+
+実物の文書で限界を測る場合は、ネット上のサンプル（IRS Form 1040＝パブリックドメイン、
+実写スキャン領収書）をオンデマンド取得して評価できます（第三者ファイルはリポジトリに
+含めず、`samples/external/` は gitignore）:
+
+```bash
+python scripts/fetch_external_samples.py
+PDFTO_RUN_DOCLING_TESTS=1 python -m eval.report --include-external
+```
+
+> 実測の所見（spec 0030 §9）：**実写スキャンの OCR が最大の弱点**（領収書で語句回収率 ~0.33、
+> 画像解像度やフルページ OCR では改善せず）。複雑フォームは本文は取れるが表構造が弱い。
+> born-digital の本文取得は実物でも頑健。
 指標関数（`eval/metrics.py`）自体は docling 不要で、既定 `pytest`（`tests/test_quality_metrics.py`）
 で検証されます。実変換を伴う `python -m eval.report` は手動実行用です。
 

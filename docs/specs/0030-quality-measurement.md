@@ -181,3 +181,27 @@ A/B（ノブの寄与）:
 
 > 数値はモデル/バージョン依存で揺れる。ここでは「現状のスナップショット」として記録し、
 > 今後のノブ調整・LLM/VLM 補正の A/B 基準にする。
+
+### 追補 2：ネット上の実文書で限界を実測（2026-06-25）
+
+合成サンプルでは限界が出なかったため、**実物の文書**を取得して限界を探した。第三者バイナリは
+リポジトリにコミットせず、`scripts/fetch_external_samples.py` でオンデマンド取得（`samples/external/`
+は gitignore）、`eval/external_cases.py` がファイルがある時だけケースを有効化する方式。
+
+| ケース | 文書 | 指標 | 現状値 | 限界の所見 |
+|---|---|---|---|---|
+| irs_1040 | IRS Form 1040（実物・born-digital、PD） | token_recall / table_blocks | **1.00 / 0** | **本文は全取得できるが表が 0 個**。フォーム（ラベル＋記入欄）の表/明細構造が散文に平坦化され、**表として保持されない** |
+| sroie_receipt | 実写スキャン領収書（ICDAR SROIE） | token_recall | **0.33** | **実写スキャンで大崩れ**。会社名・住所を誤読（"BOOK TA .K…"→"tan woon yann" 等）。日付/TOTAL/金額のみ復元 |
+
+A/B（領収書、ノブの寄与）: `baseline` / `high_res`(image_scale=4) / `force_ocr` の **3 つとも
+recall 0.333 で同一**。**画像解像度・強制フルページ OCR では救えない**ことを実測。
+
+**限界の結論:**
+1. **実写スキャン（写真撮影された領収書など）の OCR** が最大の弱点（recall ~0.33）。
+   既存のノブでは改善せず、**LLM 補正（M10-3）/ 高精度 VLM（M10-4）** が必要な領域。
+2. **複雑フォームの表構造**：テキストは取れるが、明細の表化は弱い（1040 で table_blocks=0）。
+   表として欲しい場合は後段の構造化（LLM）か VLM が要る。
+3. 一方、**born-digital の本文取得は実物でも頑健**（1040 token_recall=1.0）。
+
+再現手順: `python scripts/fetch_external_samples.py` →
+`PDFTO_RUN_DOCLING_TESTS=1 python -m eval.report --include-external`。

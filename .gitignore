@@ -11,3 +11,7 @@ dist/
 # Local CI/verification artifacts (environment-specific, not for the repo)
 _ci/
 Dockerfile.verify
+
+# Third-party evaluation samples fetched from the internet (not redistributed).
+# Recreate with: python scripts/fetch_external_samples.py
+samples/external/
