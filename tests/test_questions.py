@@ -50,6 +50,20 @@ def test_quality_knobs_mapped():
     assert opts.image_scale == 3.5
 
 
+def test_ocr_strength_question_present_for_pdf():
+    qs = {q.id: q for q in build_questions(_analysis())}
+    assert "ocr_strength" in qs
+    assert qs["ocr_strength"].default == "standard"
+
+
+def test_ocr_strength_maps_to_confidence_threshold():
+    assert apply_answers({"ocr_strength": "standard"}).ocr_confidence_threshold is None
+    assert apply_answers({"ocr_strength": "aggressive"}).ocr_confidence_threshold == 0.2
+    assert apply_answers({"ocr_strength": "max"}).ocr_confidence_threshold == 0.1
+    # A raw threshold value is honoured when no preset is given.
+    assert apply_answers({"ocr_confidence_threshold": 0.05}).ocr_confidence_threshold == 0.05
+
+
 def test_image_question_only_when_images_present():
     qs_no = {q.id for q in build_questions(_analysis(has_images=False))}
     qs_yes = {q.id for q in build_questions(_analysis(has_images=True))}

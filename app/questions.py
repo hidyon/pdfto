@@ -93,6 +93,23 @@ def build_questions(analysis: DocumentAnalysis) -> list[Question]:
                 default=False,
             )
         )
+        # OCR aggressiveness — lowering the confidence threshold recovers text
+        # from noisy/photographed scans (at the cost of more false positives).
+        questions.append(
+            Question(
+                id="ocr_strength",
+                type="choice",
+                prompt="OCR の拾い方の強さは？",
+                help="ノイズの多い写真スキャンで文字を取りこぼす場合は「強気」を選ぶと"
+                "回収率が上がります（誤検出も増えます）。通常は標準で十分です。",
+                default="standard",
+                choices=[
+                    QuestionChoice(value="standard", label="標準（推奨）"),
+                    QuestionChoice(value="aggressive", label="強気（低品質スキャン向け）"),
+                    QuestionChoice(value="max", label="最大（かなりノイジーなスキャン）"),
+                ],
+            )
+        )
 
     # Table structure recovery (same PDF/image pipeline condition).
     if pipeline_input:
@@ -179,6 +196,15 @@ def apply_answers(answers: dict) -> ConversionOptions:
 
     if answers.get("image_scale") is not None:
         data["image_scale"] = float(answers["image_scale"])
+
+    # OCR strength preset → confidence threshold. "standard" leaves the engine
+    # default (None); stronger presets lower the threshold to raise recall.
+    _ocr_strength = {"aggressive": 0.2, "max": 0.1}
+    strength = answers.get("ocr_strength")
+    if strength in _ocr_strength:
+        data["ocr_confidence_threshold"] = _ocr_strength[strength]
+    elif answers.get("ocr_confidence_threshold") is not None:
+        data["ocr_confidence_threshold"] = float(answers["ocr_confidence_threshold"])
 
     langs = answers.get("ocr_languages")
     if isinstance(langs, (list, tuple)):

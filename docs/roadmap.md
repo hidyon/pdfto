@@ -208,6 +208,7 @@ API ファーストの最小構成を成立させる。
 | M10-2 | 品質測定の土台（回帰サンプル拡張＋指標・A/B 比較） | done | [0030](specs/0030-quality-measurement.md) |
 | M10-3 | LLM による品質補正プリセット（OCR 修正・整形） | todo | — |
 | M10-4 | 高精度 VLM パイプライン（opt-in・重い） | todo | — |
+| M10-5 | OCR recall 改善（confidence しきい値の公開） | done | [0031](specs/0031-ocr-confidence.md) |
 
 ---
 

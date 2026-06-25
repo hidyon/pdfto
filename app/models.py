@@ -64,6 +64,12 @@ class ConversionOptions(BaseModel):
         description="OCR every page even where a text layer exists (uses EasyOCR; "
         "helps hybrid/partial-text PDFs). Defaults to English when no languages set.",
     )
+    ocr_confidence_threshold: Optional[float] = Field(
+        default=None, ge=0.0, le=1.0,
+        description="Minimum OCR confidence to keep a read (EasyOCR). Lower = higher "
+        "recall but more false positives; None uses the engine default (0.5). "
+        "Lowering it markedly improves noisy/photographed scans.",
+    )
     image_scale: float = Field(
         default=2.0, ge=1.0, le=4.0,
         description="Render scale for page/figure images (higher = sharper, slower).",

@@ -46,7 +46,8 @@ def _get_converter(do_ocr: bool, do_table_structure: bool, table_mode: str,
                    generate_images: bool, artifacts_path: Optional[str] = None,
                    ocr_languages: tuple = (), easyocr_models: Optional[str] = None,
                    do_cell_matching: bool = True, force_full_page_ocr: bool = False,
-                   image_scale: float = 2.0):
+                   image_scale: float = 2.0,
+                   ocr_confidence_threshold: Optional[float] = None):
     """Build (and cache) a docling ``DocumentConverter`` for a set of options.
 
     docling converters are expensive to construct because they load models, so
@@ -68,14 +69,20 @@ def _get_converter(do_ocr: bool, do_table_structure: bool, table_mode: str,
     if artifacts_path:
         pipeline_options.artifacts_path = artifacts_path
     pipeline_options.do_ocr = do_ocr
-    # Build explicit EasyOCR options when languages are requested, or when
-    # full-page OCR is forced (which needs a concrete engine). Otherwise keep
-    # docling's default OCR so existing behaviour is unchanged.
-    if do_ocr and (ocr_languages or force_full_page_ocr):
+    # Build explicit EasyOCR options when languages are requested, when full-page
+    # OCR is forced (which needs a concrete engine), or when a confidence
+    # threshold is set. Otherwise keep docling's default OCR so existing
+    # behaviour is unchanged.
+    if do_ocr and (ocr_languages or force_full_page_ocr
+                   or ocr_confidence_threshold is not None):
         # Use EasyOCR so language codes have a stable convention (en/ja/...).
         from docling.datamodel.pipeline_options import EasyOcrOptions
         ocr_opts = EasyOcrOptions(lang=list(ocr_languages) or ["en"],
                                   force_full_page_ocr=force_full_page_ocr)
+        if ocr_confidence_threshold is not None:
+            # Lower threshold keeps low-confidence reads — crucial for noisy
+            # photographed scans where correct text scores below the 0.5 default.
+            ocr_opts.confidence_threshold = ocr_confidence_threshold
         if easyocr_models:
             # Use models baked into the image; never reach the network.
             ocr_opts.model_storage_directory = easyocr_models
@@ -192,6 +199,7 @@ def convert(source_path: str | Path, options: ConversionOptions,
             do_cell_matching=options.do_cell_matching,
             force_full_page_ocr=options.force_full_page_ocr,
             image_scale=options.image_scale,
+            ocr_confidence_threshold=options.ocr_confidence_threshold,
         )
     except ImportError as exc:  # pragma: no cover - depends on environment
         raise ConversionError(

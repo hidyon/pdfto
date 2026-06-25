@@ -215,6 +215,20 @@ OCR エンジンの扱い:
   EasyOCR モデルが焼き込まれており（`PDFTO_EASYOCR_MODELS`）、**オフラインでも
   動作**します。非 Docker でモデルが無い場合は初回 OCR 時にダウンロードされます。
 
+ノイズの多い写真スキャンで文字を取りこぼす場合は、**OCR 採用信頼度の下限**を
+`ocr_confidence_threshold`（0.0–1.0）で下げると回収率が上がります。EasyOCR の既定は 0.5 で、
+ノイジーなスキャンでは正しい読みも 0.5 未満になり破棄されるため、低くするほど拾えます
+（その分、誤検出も増えます。きれいな文書では既定のままで十分です）。対話フローでは
+「OCR の拾い方の強さ」（標準 / 強気=0.2 / 最大=0.1）で選べます。
+
+```bash
+# ノイジーなスキャンで取りこぼしを減らす（信頼度の下限を下げる）
+curl -OJ "http://localhost:8000/api/v1/convert?do_ocr=true&ocr_confidence_threshold=0.1" \
+     -F file=@receipt.jpg
+```
+
+> 実測（spec 0031）: 実写スキャン領収書で語句回収率が **0.42 → 0.92**（threshold 0.5→0.1）。
+
 > 検証: `PDFTO_RUN_DOCLING_TESTS=1 pytest tests/test_quality.py` で、画像のみの
 > サンプル（`samples/scanned_sample.pdf`）から OCR が本文を抽出することを確認できます。
 

@@ -164,6 +164,60 @@ def test_quality_knobs_defaults(tmp_path, monkeypatch):
     assert captured["force_full_page_ocr"] is False
     assert captured["do_cell_matching"] is True
     assert captured["image_scale"] == 2.0
+    assert captured["ocr_confidence_threshold"] is None
+
+
+def test_ocr_confidence_threshold_forwarded(tmp_path, monkeypatch):
+    captured: dict = {}
+    monkeypatch.setattr(conv, "_get_converter",
+                        lambda **k: captured.update(k) or _FakeConverter())
+    monkeypatch.setattr(settings, "docling_artifacts", None)
+
+    pdf = tmp_path / "x.pdf"
+    pdf.write_bytes(b"%PDF-1.4\n")
+    conv.convert(pdf, ConversionOptions(do_ocr=True, ocr_confidence_threshold=0.1))
+
+    assert captured["ocr_confidence_threshold"] == 0.1
+
+
+def test_get_converter_sets_easyocr_confidence(monkeypatch):
+    """_get_converter applies the threshold onto the EasyOCR options.
+
+    docling's DocumentConverter is stubbed so no models load; EasyOcrOptions is
+    real, and we capture the pipeline_options handed to PdfFormatOption.
+    """
+    import docling.document_converter as dc
+
+    captured: dict = {}
+
+    class _StubConverter:
+        def __init__(self, format_options=None):
+            opt = format_options[next(iter(format_options))]
+            captured["pipeline_options"] = opt.pipeline_options
+
+    monkeypatch.setattr(dc, "DocumentConverter", _StubConverter)
+    conv._get_converter.cache_clear()
+    conv._get_converter(
+        do_ocr=True, do_table_structure=False, table_mode="accurate",
+        generate_images=False, force_full_page_ocr=False,
+        ocr_confidence_threshold=0.1)
+    conv._get_converter.cache_clear()
+
+    po = captured["pipeline_options"]
+    assert po.ocr_options.confidence_threshold == 0.1
+    assert po.ocr_options.lang == ["en"]
+
+
+def test_ocr_confidence_threshold_range_validated():
+    import pytest
+    from pydantic import ValidationError
+
+    for bad in (-0.1, 1.5):
+        with pytest.raises(ValidationError):
+            ConversionOptions(ocr_confidence_threshold=bad)
+    # In-range and None are accepted.
+    assert ConversionOptions(ocr_confidence_threshold=0.0).ocr_confidence_threshold == 0.0
+    assert ConversionOptions().ocr_confidence_threshold is None
 
 
 def test_relativize_asset_links():

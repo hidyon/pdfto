@@ -28,6 +28,7 @@ VARIANTS: dict[str, Callable[[ConversionOptions], ConversionOptions]] = {
     "no_cell_match": lambda o: o.model_copy(update={"do_cell_matching": False}),
     "high_res": lambda o: o.model_copy(update={"image_scale": 4.0}),
     "force_ocr": lambda o: o.model_copy(update={"force_full_page_ocr": True}),
+    "low_conf": lambda o: o.model_copy(update={"ocr_confidence_threshold": 0.1}),
 }
 
 

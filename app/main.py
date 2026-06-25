@@ -449,6 +449,7 @@ async def convert_oneshot(
     force_full_page_ocr: bool = Query(default=False),
     do_cell_matching: bool = Query(default=True),
     image_scale: float = Query(default=2.0, ge=1.0, le=4.0),
+    ocr_confidence_threshold: Optional[float] = Query(default=None, ge=0.0, le=1.0),
     llm_instruction: Optional[str] = Query(default=None),
 ) -> FileResponse:
     """Upload and convert in a single request (no questions).
@@ -474,6 +475,7 @@ async def convert_oneshot(
         "force_full_page_ocr": force_full_page_ocr,
         "do_cell_matching": do_cell_matching,
         "image_scale": image_scale,
+        "ocr_confidence_threshold": ocr_confidence_threshold,
         "llm_instruction": llm_instruction,
     })
     try:
