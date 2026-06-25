@@ -227,7 +227,9 @@ curl -OJ "http://localhost:8000/api/v1/convert?do_ocr=true&ocr_confidence_thresh
      -F file=@receipt.jpg
 ```
 
-> 実測（spec 0031）: 実写スキャン領収書で語句回収率が **0.42 → 0.92**（threshold 0.5→0.1）。
+> 実測（spec 0031）: 実写スキャン領収書（jpg）で語句回収率が **0.33 → 0.92**
+> （`ocr_confidence_threshold` 未指定→0.1）。なお画像入力にもこの設定が届くよう
+> converter を修正済み（従来は画像入力で OCR 設定が無視されていた）。
 
 > 検証: `PDFTO_RUN_DOCLING_TESTS=1 pytest tests/test_quality.py` で、画像のみの
 > サンプル（`samples/scanned_sample.pdf`）から OCR が本文を抽出することを確認できます。

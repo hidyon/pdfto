@@ -97,9 +97,34 @@ ocr_confidence_threshold: Optional[float] = Field(
 - [x] 範囲外がバリデーションで弾かれる（ge=0/le=1）。
 - [x] one-shot API（クエリ）と対話質問（OCR 強さプリセット）から指定できる。
 - [x] `eval/report.py` に `low_conf`（threshold=0.1）バリアントがあり、外部ケースで A/B できる。
-- [x] 既定 `pytest` 147 passed / 14 skipped。実変換で SROIE 領収書の recall 改善を確認：
-      EasyOCR の threshold 0.5→0.3→0.1 で **0.42 → 0.75 → 0.92**。
+- [x] 既定 `pytest` が通る。実変換で SROIE 領収書の recall 改善を確認（§9 参照）。
 - [x] README に意味・副作用を記載。
+
+## 9. 実装メモ（検証で判明した重要バグと修正）
+
+検証中に **画像入力ではこの OCR ノブ（および従来からの `ocr_languages` /
+`force_full_page_ocr`）が一切効かない**ことが判明した。`_get_converter` は
+`format_options` に **`InputFormat.PDF` だけ**を登録しており、画像入力（jpg/png/…）は
+docling の既定パイプライン（既定 OCR=RapidOCR、threshold 0.5）にフォールバックして
+**こちらの pipeline_options を無視**していた。
+
+**修正:** `InputFormat.IMAGE` にも同じ `pipeline_options` を `ImageFormatOption` で登録。
+これで OCR 言語・full-page・confidence が画像入力にも適用される（PDF 入力は不変）。
+
+修正後、SROIE 領収書（実写スキャン、正解 12 トークン）を **app の `convert()` 経由**で実測：
+
+| 設定 | recall |
+|---|---|
+| 既定（do_ocr のみ＝RapidOCR） | 0.333 |
+| `force_full_page_ocr` のみ（EasyOCR 切替） | 0.417 |
+| **`ocr_confidence_threshold=0.1` のみ** | **0.917** |
+| force + threshold=0.5 | 0.417 |
+| force + threshold=0.1 | 0.917 |
+
+**結論:** (1) 画像入力にオプションが届くようになったこと（バグ修正）と、(2) **confidence を
+下げること**が支配的に効く（0.333→0.917）。full-page OCR は単独では限定的（0.417）。
+画像入力では force すら不要で、しきい値だけで回収できる。`eval` の `low_conf`
+（threshold=0.1）バリアントもこの値を再現する。
 
 ## 6. テスト計画
 

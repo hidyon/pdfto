@@ -192,8 +192,7 @@ def test_get_converter_sets_easyocr_confidence(monkeypatch):
 
     class _StubConverter:
         def __init__(self, format_options=None):
-            opt = format_options[next(iter(format_options))]
-            captured["pipeline_options"] = opt.pipeline_options
+            captured["format_options"] = format_options
 
     monkeypatch.setattr(dc, "DocumentConverter", _StubConverter)
     conv._get_converter.cache_clear()
@@ -203,9 +202,16 @@ def test_get_converter_sets_easyocr_confidence(monkeypatch):
         ocr_confidence_threshold=0.1)
     conv._get_converter.cache_clear()
 
-    po = captured["pipeline_options"]
-    assert po.ocr_options.confidence_threshold == 0.1
-    assert po.ocr_options.lang == ["en"]
+    from docling.datamodel.base_models import InputFormat
+
+    fmts = captured["format_options"]
+    # The OCR options must reach BOTH pdf and image inputs (image inputs
+    # otherwise fall back to docling defaults and ignore the threshold).
+    assert InputFormat.PDF in fmts and InputFormat.IMAGE in fmts
+    for fmt in (InputFormat.PDF, InputFormat.IMAGE):
+        po = fmts[fmt].pipeline_options
+        assert po.ocr_options.confidence_threshold == 0.1
+        assert po.ocr_options.lang == ["en"]
 
 
 def test_ocr_confidence_threshold_range_validated():

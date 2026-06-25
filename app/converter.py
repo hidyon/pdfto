@@ -63,7 +63,11 @@ def _get_converter(do_ocr: bool, do_table_structure: bool, table_mode: str,
         PdfPipelineOptions,
         TableFormerMode,
     )
-    from docling.document_converter import DocumentConverter, PdfFormatOption
+    from docling.document_converter import (
+        DocumentConverter,
+        ImageFormatOption,
+        PdfFormatOption,
+    )
 
     pipeline_options = PdfPipelineOptions()
     if artifacts_path:
@@ -100,9 +104,14 @@ def _get_converter(do_ocr: bool, do_table_structure: bool, table_mode: str,
     if generate_images:
         pipeline_options.generate_picture_images = True
 
+    # Register the pipeline options for image inputs too, not just PDFs.
+    # Image files go through the same pdf pipeline, but without an explicit
+    # ImageFormatOption docling falls back to its defaults and silently ignores
+    # our OCR settings (languages / force-full-page / confidence) on images.
     return DocumentConverter(
         format_options={
-            InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options)
+            InputFormat.PDF: PdfFormatOption(pipeline_options=pipeline_options),
+            InputFormat.IMAGE: ImageFormatOption(pipeline_options=pipeline_options),
         }
     )
 
