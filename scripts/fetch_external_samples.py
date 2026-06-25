@@ -9,10 +9,12 @@ on demand into ``samples/external/``.  The matching eval cases
 Sources / licensing:
 - IRS Form 1040 (``f1040.pdf``): a U.S. federal government work — public domain.
   A complex, born-digital tax form (dense fields, ruled line items).
-- SROIE receipt (``sroie000.jpg`` + ``sroie000.key.json``): one scanned receipt
-  from the ICDAR-2019 SROIE dataset (via the public zzzDavid/ICDAR-2019-SROIE
-  mirror), used here only for local evaluation, not redistributed.  A real
-  photographed receipt — a hard OCR case — with ground-truth key fields.
+- SROIE receipts (``sroie0NN.jpg`` + ``sroie0NN.key.json``): several scanned
+  receipts from the ICDAR-2019 SROIE dataset (via the public
+  zzzDavid/ICDAR-2019-SROIE mirror), used here only for local evaluation, not
+  redistributed.  Real photographed receipts — hard OCR cases — each with
+  ground-truth key fields (company/date/address/total).  Multiple receipts let
+  us check whether an improvement *generalizes* rather than fitting one image.
 
 Usage:
     python scripts/fetch_external_samples.py
@@ -25,14 +27,17 @@ import urllib.request
 
 EXTERNAL = pathlib.Path(__file__).resolve().parents[1] / "samples" / "external"
 
+_SROIE = "https://raw.githubusercontent.com/zzzDavid/ICDAR-2019-SROIE/master/data"
+# Receipts to pull; each contributes an image + ground-truth key file.
+SROIE_IDS = ["000", "001", "002", "003", "004", "005"]
+
 # (url, local filename) pairs.
 SOURCES = [
     ("https://www.irs.gov/pub/irs-pdf/f1040.pdf", "f1040.pdf"),
-    ("https://raw.githubusercontent.com/zzzDavid/ICDAR-2019-SROIE/master/data/img/000.jpg",
-     "sroie000.jpg"),
-    ("https://raw.githubusercontent.com/zzzDavid/ICDAR-2019-SROIE/master/data/key/000.json",
-     "sroie000.key.json"),
 ]
+for _id in SROIE_IDS:
+    SOURCES.append((f"{_SROIE}/img/{_id}.jpg", f"sroie{_id}.jpg"))
+    SOURCES.append((f"{_SROIE}/key/{_id}.json", f"sroie{_id}.key.json"))
 
 
 def fetch(url: str, dest: pathlib.Path, timeout: int = 60) -> None:

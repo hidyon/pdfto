@@ -18,10 +18,26 @@ def test_external_cases_only_returns_present_files():
 
 def test_all_external_definitions_are_wellformed():
     cases = ext._all_external()
-    assert {c.name for c in cases} == {"irs_1040", "sroie_receipt"}
+    names = {c.name for c in cases}
+    assert "irs_1040" in names                     # IRS case is always defined
+    assert all(n == "irs_1040" or n.startswith("sroie_") for n in names)
     for case in cases:
         scores = case.score("")          # empty output must not raise
         assert scores and all(isinstance(v, float) for v in scores.values())
+
+
+def test_sroie_tokens_derived_from_key(tmp_path):
+    key = tmp_path / "k.json"
+    key.write_text(
+        '{"company": "BOOK TA .K (TAMAN DAYA) SDN BHD", "date": "25/12/2018",'
+        ' "address": "NO.53, JALAN SAGU 18, 81100 JOHOR", "total": "9.00"}',
+        encoding="utf-8")
+    tokens = ext.sroie_tokens(key)
+    # Words >= 3 chars from company/address, plus verbatim date/total.
+    assert "TAMAN" in tokens and "JALAN" in tokens and "JOHOR" in tokens
+    assert "25/12/2018" in tokens and "9.00" in tokens
+    assert "TA" not in tokens          # too short, dropped
+    assert tokens == list(dict.fromkeys(tokens))  # de-duplicated, order-stable
 
 
 def test_count_table_blocks():
