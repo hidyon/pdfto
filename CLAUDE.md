@@ -137,6 +137,16 @@ docker run -p 8000:8000 -v pdfto-data:/data pdfto
 （実 LLM は `PDFTO_RUN_LLM_TESTS=1` ＋ `ANTHROPIC_API_KEY` で `tests/test_quality_llm.py`
 のみ起動。どちらか欠けたら skip）。
 
+**品質施策は測ってから既定化する**（M10 ふりかえりで決定）。変換品質に効くと思った施策
+（OCR ノブ・前処理・プリセット等）は、`eval/` の測定土台（指標＋A/B＋回帰サンプル）で
+**平均で改善することを確認してから既定値にする**。効かない／害がある施策は既定 OFF の
+任意ツールに留める（例: 画像前処理 M10-6 は実写 6 枚の A/B で平均が下がり、既定 OFF とした）。
+品質数値は**必ずアプリの実経路（`app.converter.convert` / API）で測る**——直接 docling や
+OCR エンジン直呼びの数値を成果として報告しない（画像入力で OCR 設定が無視されていたバグは、
+実経路と直接実験の数値の食い違いから発見できた）。実物文書での評価は、第三者バイナリを
+コミットせず **fetch スクリプト＋`samples/external/` を gitignore＋ファイル存在で gated に
+するケース**（`scripts/fetch_external_samples.py` / `eval/external_cases.py`）の型で再現可能にする。
+
 ### 規約・注意点
 
 - **コミット前にテストを通す**（`pytest`）。振る舞いを変えたらテストを追加する。
