@@ -182,10 +182,26 @@ def build_questions(analysis: DocumentAnalysis) -> list[Question]:
     if settings.llm_enabled:
         questions.append(
             Question(
+                id="llm_preset",
+                type="choice",
+                prompt="変換後に AI で品質補正しますか？",
+                help="ocr_fix=OCR 誤りを文脈で修正 / cleanup=改行・ノイズの整形 / "
+                "tables=表を Markdown 表に再構成。なし＝補正しません。",
+                default="none",
+                choices=[
+                    QuestionChoice(value="none", label="なし"),
+                    QuestionChoice(value="ocr_fix", label="OCR 誤り修正"),
+                    QuestionChoice(value="cleanup", label="整形（改行・ノイズ）"),
+                    QuestionChoice(value="tables", label="表を再構成"),
+                ],
+            )
+        )
+        questions.append(
+            Question(
                 id="llm_instruction",
                 type="text",
-                prompt="変換後にAIで整形しますか？（任意の指示）",
-                help="例: 「日本語に翻訳」「要約」「見出しを整える」。空欄ならそのまま出力します。",
+                prompt="追加の AI 指示があれば（任意）",
+                help="例: 「日本語に翻訳」「要約」。プリセットと併用できます。空欄なら指示なし。",
                 default="",
             )
         )
@@ -222,6 +238,10 @@ def apply_answers(answers: dict) -> ConversionOptions:
     langs = answers.get("ocr_languages")
     if isinstance(langs, (list, tuple)):
         data["ocr_languages"] = [str(x) for x in langs]
+
+    preset = answers.get("llm_preset")
+    if isinstance(preset, str) and preset and preset != "none":
+        data["llm_preset"] = preset
 
     instruction = answers.get("llm_instruction")
     if isinstance(instruction, str) and instruction.strip():

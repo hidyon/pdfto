@@ -272,9 +272,12 @@ curl -O "http://localhost:8000/api/v1/documents/<ID>/assets/<filename>"
 | `do_cell_matching` | 表セルを検出グリッドに対応付け（表精度向上） | `true` / `false` |
 | `force_full_page_ocr` | テキスト層を無視し全ページ強制 OCR（ハイブリッド PDF 対策・要 OCR） | `true` / `false` |
 | `image_scale` | 画像の描画解像度（高いほど鮮明・低速） | `1.0`〜`4.0`（既定 `2.0`） |
+| `ocr_confidence_threshold` | OCR 採用信頼度の下限（低いほど recall↑/誤検出↑・要 OCR） | `0.0`〜`1.0`（既定 既定エンジン値） |
+| `ocr_preprocess` | OCR 前に画像補正（既定 OFF・画像入力のみ・一般化せず） | `true` / `false` |
 | `image_mode` | 画像の扱い | `placeholder` / `embedded` / `referenced` |
 | `page_range` | 変換するページ範囲 | `[1, 5]` |
-| `llm_instruction` | 変換後に LLM で整形（要 API キー） | `"日本語に翻訳"` |
+| `llm_preset` | 変換後に LLM で品質補正（要 API キー） | `ocr_fix` / `cleanup` / `tables` |
+| `llm_instruction` | 変換後に LLM で整形（要 API キー・プリセットと併用可） | `"日本語に翻訳"` |
 
 > `force_full_page_ocr` は EasyOCR を使い、言語未指定なら英語（`en`）で全ページを OCR します。
 
@@ -429,10 +432,24 @@ export PDFTO_ANTHROPIC_API_KEY="sk-ant-..."
 # ワンショットで「英語に翻訳」
 curl -OJ "http://localhost:8000/api/v1/convert?llm_instruction=Translate%20to%20English" \
      -F file=@report.pdf
+
+# 品質補正プリセット：OCR 誤りを文脈で修正（スキャン文書向け）
+curl -OJ "http://localhost:8000/api/v1/convert?do_ocr=true&ocr_confidence_threshold=0.1&llm_preset=ocr_fix" \
+     -F file=@receipt.jpg
 ```
 
-対話フローでは、機能有効時に「変換後にAIで整形しますか？」という自由記述の質問が
-追加されます。既定モデルは `claude-opus-4-8`（`PDFTO_LLM_MODEL` で変更可）。
+**品質補正プリセット**（`llm_preset`）で、よく使う補正を指示文なしに選べます：
+
+- `ocr_fix` … OCR の誤読を**文脈で修正**（情報の追加・削除はしない）。スキャン文書の仕上げに。
+- `cleanup` … 改行・ハイフネーション・スキャンノイズの**整形**。
+- `tables` … 明確に表のテキストを **Markdown 表に再構成**。
+
+プリセットは自由指示（`llm_instruction`）と**併用**できます（プリセット＋追加指示）。
+対話フローでは「変換後に AI で品質補正しますか？」（プリセット選択）と追加指示欄が出ます。
+既定モデルは `claude-opus-4-8`（`PDFTO_LLM_MODEL` で変更可）。
+
+> 補正対象は OCR の*誤読*（化け）です。OCR が**取りこぼした**文字は LLM では復元できないため、
+> まず `ocr_confidence_threshold` 等で recall を上げ、その上で `ocr_fix` を重ねるのが効果的です。
 
 > 整形を使うと、変換後テキストが Anthropic API に送信されます（オプトイン）。
 > 対象は Markdown / テキスト出力のみ。失敗時はジョブが `failed` になります。

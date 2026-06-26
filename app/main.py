@@ -49,6 +49,7 @@ from .models import (
     DocumentSummary,
     Job,
     JobStatus,
+    LLMPreset,
     OutputFormat,
     Question,
     TableMode,
@@ -205,10 +206,16 @@ def _analyze_bytes(data: bytes, filename: str) -> DocumentAnalysis:
 
 
 def _apply_llm(content: str, options) -> str:
-    """Optionally post-process the converted text with an LLM (opt-in)."""
-    if (options.llm_instruction and settings.llm_enabled
+    """Optionally post-process the converted text with an LLM (opt-in).
+
+    A preset (``llm_preset``) and/or a free instruction (``llm_instruction``) are
+    resolved into a single instruction; the LLM runs only when one is present,
+    the feature is configured, and the output is text-like.
+    """
+    instruction = llm.resolve_instruction(options.llm_preset, options.llm_instruction)
+    if (instruction and settings.llm_enabled
             and options.output_format in (OutputFormat.markdown, OutputFormat.text)):
-        return llm.transform(content, options.llm_instruction)
+        return llm.transform(content, instruction)
     return content
 
 
@@ -451,6 +458,7 @@ async def convert_oneshot(
     image_scale: float = Query(default=2.0, ge=1.0, le=4.0),
     ocr_confidence_threshold: Optional[float] = Query(default=None, ge=0.0, le=1.0),
     ocr_preprocess: bool = Query(default=False),
+    llm_preset: Optional[LLMPreset] = Query(default=None),
     llm_instruction: Optional[str] = Query(default=None),
 ) -> FileResponse:
     """Upload and convert in a single request (no questions).
@@ -478,6 +486,7 @@ async def convert_oneshot(
         "image_scale": image_scale,
         "ocr_confidence_threshold": ocr_confidence_threshold,
         "ocr_preprocess": ocr_preprocess,
+        "llm_preset": llm_preset.value if llm_preset else None,
         "llm_instruction": llm_instruction,
     })
     try:

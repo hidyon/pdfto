@@ -206,7 +206,7 @@ API ファーストの最小構成を成立させる。
 |------|------|------|------|
 | M10-1 | 精度ノブの拡充（cell matching / full-page OCR / 画像解像度） | done | [0029](specs/0029-quality-knobs.md) |
 | M10-2 | 品質測定の土台（回帰サンプル拡張＋指標・A/B 比較） | done | [0030](specs/0030-quality-measurement.md) |
-| M10-3 | LLM による品質補正プリセット（OCR 修正・整形） | todo | — |
+| M10-3 | LLM による品質補正プリセット（OCR 修正・整形） | done | [0033](specs/0033-llm-presets.md) |
 | M10-4 | 高精度 VLM パイプライン（opt-in・重い） | todo | — |
 | M10-5 | OCR recall 改善（confidence しきい値の公開） | done | [0031](specs/0031-ocr-confidence.md) |
 | M10-6 | OCR 前の画像前処理（denoise/二値化/拡大）※既定OFF・一般化せず | done | [0032](specs/0032-ocr-preprocess.md) |

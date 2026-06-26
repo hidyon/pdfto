@@ -150,6 +150,8 @@ def test_llm_question_only_when_enabled(monkeypatch):
     qs = {q.id: q for q in build_questions(_analysis())}
     assert "llm_instruction" in qs
     assert qs["llm_instruction"].type == "text"
+    assert "llm_preset" in qs                       # the preset chooser too
+    assert qs["llm_preset"].default == "none"
 
 
 def test_apply_answers_maps_llm_instruction():
@@ -157,3 +159,11 @@ def test_apply_answers_maps_llm_instruction():
     assert opts.llm_instruction == "summarize"
     # Empty/whitespace is ignored.
     assert apply_answers({"llm_instruction": "   "}).llm_instruction is None
+
+
+def test_apply_answers_maps_llm_preset():
+    from app.models import LLMPreset
+    assert apply_answers({"llm_preset": "ocr_fix"}).llm_preset is LLMPreset.ocr_fix
+    # "none"/empty mean no preset.
+    assert apply_answers({"llm_preset": "none"}).llm_preset is None
+    assert apply_answers({}).llm_preset is None

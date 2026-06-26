@@ -32,6 +32,14 @@ class TableMode(str, Enum):
     accurate = "accurate"
 
 
+class LLMPreset(str, Enum):
+    """Named LLM post-processing presets for common quality corrections."""
+
+    ocr_fix = "ocr_fix"   # fix OCR misreads from context (no add/remove)
+    cleanup = "cleanup"   # repair wraps/hyphenation, strip scan artifacts
+    tables = "tables"     # reconstruct clearly-tabular text as Markdown tables
+
+
 class ConversionOptions(BaseModel):
     """Options controlling a single conversion.
 
@@ -81,6 +89,11 @@ class ConversionOptions(BaseModel):
         description="Render scale for page/figure images (higher = sharper, slower).",
     )
     image_mode: ImageMode = ImageMode.placeholder
+    llm_preset: Optional[LLMPreset] = Field(
+        default=None,
+        description="LLM correction preset (ocr_fix/cleanup/tables). Combinable with "
+        "llm_instruction. Requires an Anthropic API key (opt-in).",
+    )
     llm_instruction: Optional[str] = Field(
         default=None,
         description="Optional natural-language instruction to post-process the "

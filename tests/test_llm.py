@@ -66,6 +66,54 @@ def test_transform_calls_anthropic_and_returns_text(monkeypatch):
     assert "temperature" not in captured
 
 
+def test_resolve_instruction_combinations():
+    from app.models import LLMPreset
+
+    # Preset only -> its curated instruction.
+    only_preset = llm.resolve_instruction(LLMPreset.ocr_fix, None)
+    assert only_preset == llm.PRESET_INSTRUCTIONS["ocr_fix"]
+    # Free instruction only.
+    assert llm.resolve_instruction(None, "summarize") == "summarize"
+    # Both -> preset text then the free instruction.
+    both = llm.resolve_instruction(LLMPreset.cleanup, "translate to English")
+    assert both.startswith(llm.PRESET_INSTRUCTIONS["cleanup"])
+    assert both.endswith("translate to English")
+    # Neither / blanks -> None.
+    assert llm.resolve_instruction(None, None) is None
+    assert llm.resolve_instruction(None, "   ") is None
+    # A bare string preset value works; unknown values are ignored.
+    assert llm.resolve_instruction("tables", None) == llm.PRESET_INSTRUCTIONS["tables"]
+    assert llm.resolve_instruction("bogus", None) is None
+
+
+def test_apply_llm_uses_resolved_instruction(monkeypatch):
+    """_apply_llm runs transform with the resolved preset+instruction."""
+    from app import main
+    from app.models import ConversionOptions, LLMPreset, OutputFormat
+
+    seen: dict = {}
+    monkeypatch.setattr(main.settings, "anthropic_api_key", "key-xyz")  # llm_enabled
+    monkeypatch.setattr(main.llm, "transform",
+                        lambda content, instruction: seen.update(
+                            content=content, instruction=instruction) or "FIXED")
+
+    out = main._apply_llm("body", ConversionOptions(
+        output_format=OutputFormat.markdown, llm_preset=LLMPreset.ocr_fix))
+    assert out == "FIXED"
+    assert seen["instruction"] == llm.PRESET_INSTRUCTIONS["ocr_fix"]
+
+
+def test_apply_llm_noop_without_preset_or_instruction(monkeypatch):
+    from app import main
+    from app.models import ConversionOptions, OutputFormat
+
+    monkeypatch.setattr(main.settings, "anthropic_api_key", "key-xyz")
+    monkeypatch.setattr(main.llm, "transform",
+                        lambda *a, **k: pytest.fail("transform must not be called"))
+    out = main._apply_llm("body", ConversionOptions(output_format=OutputFormat.markdown))
+    assert out == "body"
+
+
 def test_transform_wraps_sdk_errors(monkeypatch):
     monkeypatch.setattr(settings, "anthropic_api_key", "key-xyz")
 

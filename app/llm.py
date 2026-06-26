@@ -31,6 +31,45 @@ _SYSTEM = (
 )
 
 
+# Curated instructions behind the LLMPreset names (kept here so models.py stays
+# free of prompt text).  Keyed by the preset's string value.
+PRESET_INSTRUCTIONS: dict[str, str] = {
+    "ocr_fix": (
+        "Fix obvious OCR recognition errors using surrounding context (e.g. "
+        "confused characters, split or merged words). Do NOT add information that "
+        "is not present and do NOT remove content. Preserve all numbers, dates, "
+        "currency amounts, and the document's structure exactly."
+    ),
+    "cleanup": (
+        "Clean up the converted text: repair broken line wraps and hyphenation, "
+        "remove scanning artifacts and stray characters, and normalize whitespace. "
+        "Keep all real content and structure; do not summarize or rewrite."
+    ),
+    "tables": (
+        "Where the text clearly represents tabular data, reconstruct it as proper "
+        "Markdown tables. Leave non-tabular text unchanged. Do not invent values."
+    ),
+}
+
+
+def resolve_instruction(preset, instruction: Optional[str]) -> Optional[str]:
+    """Combine a preset and a free instruction into a single instruction.
+
+    *preset* may be an ``LLMPreset``, its string value, or ``None``; *instruction*
+    is optional free text.  Returns the combined instruction, or ``None`` when
+    neither is given.  Unknown preset values are ignored.
+    """
+    parts: list[str] = []
+    if preset is not None:
+        key = getattr(preset, "value", preset)
+        preset_text = PRESET_INSTRUCTIONS.get(key)
+        if preset_text:
+            parts.append(preset_text)
+    if instruction and instruction.strip():
+        parts.append(instruction.strip())
+    return "\n\n".join(parts) if parts else None
+
+
 def transform(content: str, instruction: str, *, model: Optional[str] = None,
               max_tokens: Optional[int] = None, api_key: Optional[str] = None,
               timeout: Optional[float] = None) -> str:
