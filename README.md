@@ -354,6 +354,11 @@ npx @openapitools/openapi-generator-cli generate \
 | `PDFTO_LLM_MODEL` | `claude-opus-4-8` | LLM 整形に使うモデル（コスト優先なら `claude-sonnet-4-6` 等） |
 | `PDFTO_LLM_MAX_TOKENS` | `16000` | LLM 出力の最大トークン |
 | `PDFTO_LLM_TIMEOUT` | `120` | LLM リクエストのタイムアウト（秒） |
+| `PDFTO_VLM_MODEL` | `granite_docling` | ローカル VLM モデル（`use_vlm=true` 時。`granite_docling` / `smoldocling`） |
+| `PDFTO_VLM_API_URL` | （空） | 設定すると VLM を OpenAI 互換 API で実行（ページ画像を外部送信） |
+| `PDFTO_VLM_API_KEY` | （空） | VLM API の認証キー（`Authorization: Bearer`） |
+| `PDFTO_VLM_API_MODEL` | （空） | VLM API のモデル名 |
+| `PDFTO_VLM_TIMEOUT` | `300` | VLM API リクエストのタイムアウト（秒） |
 
 ## 認証とレート制限
 
@@ -453,6 +458,28 @@ curl -OJ "http://localhost:8000/api/v1/convert?do_ocr=true&ocr_confidence_thresh
 
 > 整形を使うと、変換後テキストが Anthropic API に送信されます（オプトイン）。
 > 対象は Markdown / テキスト出力のみ。失敗時はジョブが `failed` になります。
+
+## VLM パイプライン（高精度・任意）
+
+`use_vlm=true` で **VLM（Vision-Language Model）パイプライン**に切り替えられます。OCR・
+レイアウト解析・表検出を 1 つのモデルがページ画像から **end-to-end** で行うため、劣化スキャンや
+複雑レイアウトに強いことがあります。**重い**ので既定は OFF、OCR/表の個別ノブは無視されます。
+
+```bash
+# ローカル VLM（既定 granite_docling-258M。初回はモデルをダウンロード）
+curl -OJ "http://localhost:8000/api/v1/convert?use_vlm=true" -F file=@scan.pdf
+```
+
+2 つの動かし方があります。
+
+- **ローカル**（既定）… transformers でモデルを実行（`PDFTO_VLM_MODEL`：`granite_docling` /
+  `smoldocling`）。初回にモデル DL、以降はオフライン。CPU では遅め。
+- **API**（`PDFTO_VLM_API_URL` 設定時）… OpenAI 互換エンドポイントへページ画像を送信
+  （`PDFTO_VLM_API_KEY` / `PDFTO_VLM_API_MODEL`）。ローカルにモデルを置かずに高精度モデルを使える。
+
+> API モードは**ページ画像が外部へ送信**されます（オプトイン・要 URL 設定）。
+> 実 VLM は重いため、テストは `PDFTO_RUN_VLM_TESTS=1` の opt-in（`tests/test_quality_vlm.py`）に
+> 分離しています（既定 `pytest` はモデル DL 不要のモック配線テストのみ）。
 
 ## ログと監視
 
