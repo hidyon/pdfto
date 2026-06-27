@@ -1,7 +1,7 @@
 # Spec: 高精度 VLM パイプライン（use_vlm・ローカル/API）
 
 - **ID:** 0034
-- **状態:** approved
+- **状態:** done
 - **マイルストーン:** M11 高精度 VLM パイプライン
 - **関連 issue:** M11-1（VLM パイプライン統合）
 - **作成日 / 更新日:** 2026-06-25 / 2026-06-25
@@ -101,13 +101,29 @@ use_vlm: bool = Field(default=False,
 
 ## 5. 受け入れ条件（Definition of Done）
 
-- [ ] `use_vlm` が `ConversionOptions` にあり、既定 False で現挙動維持。
-- [ ] `use_vlm=True` で converter が `VlmPipeline` ベースで構築される（PDF/画像、モックで検証）。
-- [ ] `PDFTO_VLM_API_URL` 設定時は API VLM（`enable_remote_services`＋認証ヘッダ）になる（モック）。
-- [ ] 未知モデル名は `ConversionError`。
-- [ ] one-shot API と対話質問から指定でき、`apply_answers` がマップ。
-- [ ] 既定 `pytest` が通る（モデル DL 不要）。
-- [ ] 実 VLM は `PDFTO_RUN_VLM_TESTS=1` の opt-in テストで（手動・重い）。README に記載。
+- [x] `use_vlm` が `ConversionOptions` にあり、既定 False で現挙動維持。
+- [x] `use_vlm=True` で converter が `VlmPipeline` ベースで構築される（PDF/画像、モックで検証）。
+- [x] `PDFTO_VLM_API_URL` 設定時は API VLM（`enable_remote_services`＋認証ヘッダ）になる（モック）。
+- [x] 未知モデル名は `ConversionError`。
+- [x] one-shot API と対話質問から指定でき、`apply_answers` がマップ。
+- [x] 既定 `pytest` 166 passed（モデル DL 不要）。
+- [x] 実 VLM は `PDFTO_RUN_VLM_TESTS=1` の opt-in テストで（手動・重い）。README に記載。
+
+## 9. 実測（ローカル VLM・GraniteDocling-258M・CPU）
+
+本環境で実際にローカル VLM を走らせ、`app.converter.convert(use_vlm=True)` の実経路で確認した
+（モデル DL 後、CPU で約 60–65 秒/ページ）。
+
+| 入力 | 指標 | 従来パイプライン | **VLM** |
+|---|---|---|---|
+| scanned_sample.pdf | 構造/本文 | OCR で本文のみ | **見出し `## …` ＋本文を構造化**（fox/invoice 取得） |
+| sroie004（最難の実写領収書） | token_recall | OCR 0.33 / low_conf 0.33 | **0.833** |
+
+**所見:** OCR＋confidence でも 0.33 止まりだった最難の実写領収書を、VLM は **0.833** まで
+読み取れた（住所・明細まで復元）。会社名は `MR D.I.Y. (M)`→`(4) SON` 等の誤りも残るが、
+従来パイプラインの天井を**大きく超える**。スキャン文書では見出し構造まで復元できた。
+コストは CPU で約 1 分/ページと重く、**opt-in（既定 OFF）が妥当**。GPU/API VLM ならさらに
+速度・精度が見込める。eval 土台への自動 A/B 統合はモデルが重いため専用環境向けに別途。
 
 ## 6. テスト計画
 
