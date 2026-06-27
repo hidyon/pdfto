@@ -215,6 +215,25 @@ API ファーストの最小構成を成立させる。
 
 ---
 
+## M11: 高精度 VLM パイプライン — `in-progress`
+
+**目的:** docling の VLM（Vision-Language Model）パイプラインを opt-in で導入し、実写スキャンや
+複雑フォームなど従来パイプラインが苦手な文書を、画像から直接 end-to-end で構造化変換できる
+選択肢を提供する（M10 で繰り越した M10-4 を本マイルストーンで実施）。
+
+**完了条件 (DoD):**
+- `use_vlm` で VLM パイプラインに切り替えられる（既定 OFF・現挙動維持）。
+- ローカル VLM（transformers, 例 GraniteDocling）と API VLM（OpenAI 互換エンドポイント）の
+  両方を選べる（後者は `PDFTO_VLM_API_*` 設定）。
+- 既定 `pytest`（モック）で配線を検証。実 VLM は重いため専用フラグの opt-in／手動。
+- README にコスト・適用範囲・設定を記載。
+
+| issue | 内容 | 状態 | spec |
+|------|------|------|------|
+| M11-1 | VLM パイプライン統合（use_vlm・ローカル/API・配線） | in-progress | [0034](specs/0034-vlm-pipeline.md) |
+
+---
+
 ## ふりかえりログ
 
 マイルストーン完了ごとに「うまくいったこと / 課題 / 次に変えること」を記録する。

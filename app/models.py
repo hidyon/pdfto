@@ -89,6 +89,12 @@ class ConversionOptions(BaseModel):
         description="Render scale for page/figure images (higher = sharper, slower).",
     )
     image_mode: ImageMode = ImageMode.placeholder
+    use_vlm: bool = Field(
+        default=False,
+        description="Use the VLM (vision-language) pipeline: a model reads page "
+        "images end-to-end. Heavier; helps degraded scans / complex layouts. "
+        "Ignores the OCR/table knobs.",
+    )
     llm_preset: Optional[LLMPreset] = Field(
         default=None,
         description="LLM correction preset (ocr_fix/cleanup/tables). Combinable with "

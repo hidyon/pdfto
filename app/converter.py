@@ -116,6 +116,70 @@ def _get_converter(do_ocr: bool, do_table_structure: bool, table_mode: str,
     )
 
 
+# Local VLM models docling can run via transformers, keyed by a short name.
+_VLM_MODELS = {
+    "granite_docling": "GRANITEDOCLING_TRANSFORMERS",
+    "smoldocling": "SMOLDOCLING_TRANSFORMERS",
+}
+
+
+@lru_cache(maxsize=4)
+def _get_vlm_converter(model: str, api_url: Optional[str], api_key: Optional[str],
+                       api_model: Optional[str], timeout: int,
+                       artifacts_path: Optional[str] = None,
+                       image_scale: float = 2.0):
+    """Build (and cache) a docling VLM-pipeline ``DocumentConverter``.
+
+    When *api_url* is set, the page images are sent to an OpenAI-compatible VLM
+    endpoint; otherwise a local transformers model (*model*) reads them.  Raises
+    ``ConversionError`` for an unknown local model name.  All VLM/transformers
+    imports are local so the default app/tests never load them.
+    """
+    from docling.datamodel.base_models import InputFormat
+    from docling.datamodel.pipeline_options import VlmPipelineOptions
+    from docling.document_converter import (
+        DocumentConverter,
+        ImageFormatOption,
+        PdfFormatOption,
+    )
+    from docling.pipeline.vlm_pipeline import VlmPipeline
+
+    if api_url:
+        from docling.datamodel.pipeline_options import ApiVlmOptions, ResponseFormat
+        headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+        vlm_options = ApiVlmOptions(
+            url=api_url,
+            params={"model": api_model} if api_model else {},
+            headers=headers,
+            timeout=timeout,
+            prompt="Convert this page to markdown.",
+            response_format=ResponseFormat.MARKDOWN,
+        )
+        pipeline_options = VlmPipelineOptions(
+            enable_remote_services=True, vlm_options=vlm_options)
+    else:
+        spec_name = _VLM_MODELS.get(model)
+        if spec_name is None:
+            raise ConversionError(
+                f"unknown VLM model {model!r}; choose from {sorted(_VLM_MODELS)}")
+        from docling.datamodel import vlm_model_specs
+        pipeline_options = VlmPipelineOptions(
+            vlm_options=getattr(vlm_model_specs, spec_name))
+
+    if artifacts_path:
+        pipeline_options.artifacts_path = artifacts_path
+    pipeline_options.images_scale = image_scale
+
+    return DocumentConverter(
+        format_options={
+            InputFormat.PDF: PdfFormatOption(
+                pipeline_cls=VlmPipeline, pipeline_options=pipeline_options),
+            InputFormat.IMAGE: ImageFormatOption(
+                pipeline_cls=VlmPipeline, pipeline_options=pipeline_options),
+        }
+    )
+
+
 def _export(document, options: ConversionOptions) -> tuple[str, dict]:
     """Export a docling document to (content, assets).
 
@@ -197,19 +261,32 @@ def convert(source_path: str | Path, options: ConversionOptions,
 
     generate_images = options.image_mode in (ImageMode.embedded, ImageMode.referenced)
     try:
-        converter = _get_converter(
-            do_ocr=options.do_ocr,
-            do_table_structure=options.do_table_structure,
-            table_mode=options.table_mode.value,
-            generate_images=generate_images,
-            artifacts_path=settings.docling_artifacts,
-            ocr_languages=tuple(options.ocr_languages),
-            easyocr_models=settings.easyocr_models,
-            do_cell_matching=options.do_cell_matching,
-            force_full_page_ocr=options.force_full_page_ocr,
-            image_scale=options.image_scale,
-            ocr_confidence_threshold=options.ocr_confidence_threshold,
-        )
+        if options.use_vlm:
+            # The VLM pipeline reads page images end-to-end; the OCR/table knobs
+            # do not apply and are intentionally ignored here.
+            converter = _get_vlm_converter(
+                model=settings.vlm_model,
+                api_url=settings.vlm_api_url,
+                api_key=settings.vlm_api_key,
+                api_model=settings.vlm_api_model,
+                timeout=settings.vlm_timeout,
+                artifacts_path=settings.docling_artifacts,
+                image_scale=options.image_scale,
+            )
+        else:
+            converter = _get_converter(
+                do_ocr=options.do_ocr,
+                do_table_structure=options.do_table_structure,
+                table_mode=options.table_mode.value,
+                generate_images=generate_images,
+                artifacts_path=settings.docling_artifacts,
+                ocr_languages=tuple(options.ocr_languages),
+                easyocr_models=settings.easyocr_models,
+                do_cell_matching=options.do_cell_matching,
+                force_full_page_ocr=options.force_full_page_ocr,
+                image_scale=options.image_scale,
+                ocr_confidence_threshold=options.ocr_confidence_threshold,
+            )
     except ImportError as exc:  # pragma: no cover - depends on environment
         raise ConversionError(
             "docling is not installed; run `pip install docling`"
@@ -228,7 +305,8 @@ def convert(source_path: str | Path, options: ConversionOptions,
     import tempfile
 
     is_image = kind_of(extension_of(source_path.name)) == "image"
-    preprocess = options.ocr_preprocess and options.do_ocr and is_image
+    preprocess = (options.ocr_preprocess and options.do_ocr and is_image
+                  and not options.use_vlm)
     with tempfile.TemporaryDirectory() as _ppdir:
         convert_source = source_path
         if preprocess:

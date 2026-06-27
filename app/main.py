@@ -458,6 +458,7 @@ async def convert_oneshot(
     image_scale: float = Query(default=2.0, ge=1.0, le=4.0),
     ocr_confidence_threshold: Optional[float] = Query(default=None, ge=0.0, le=1.0),
     ocr_preprocess: bool = Query(default=False),
+    use_vlm: bool = Query(default=False),
     llm_preset: Optional[LLMPreset] = Query(default=None),
     llm_instruction: Optional[str] = Query(default=None),
 ) -> FileResponse:
@@ -486,6 +487,7 @@ async def convert_oneshot(
         "image_scale": image_scale,
         "ocr_confidence_threshold": ocr_confidence_threshold,
         "ocr_preprocess": ocr_preprocess,
+        "use_vlm": use_vlm,
         "llm_preset": llm_preset.value if llm_preset else None,
         "llm_instruction": llm_instruction,
     })

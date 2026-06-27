@@ -123,6 +123,19 @@ def build_questions(analysis: DocumentAnalysis) -> list[Question]:
                 )
             )
 
+    # VLM pipeline — an alternative, heavier end-to-end path for hard documents.
+    if pipeline_input:
+        questions.append(
+            Question(
+                id="use_vlm",
+                type="boolean",
+                prompt="高精度 VLM パイプラインを使いますか？（重い）",
+                help="画像をモデルが直接読み取り、劣化スキャンや複雑レイアウトに強い"
+                "ことがあります。処理は重く、OCR/表の個別設定は無視されます。",
+                default=False,
+            )
+        )
+
     # Table structure recovery (same PDF/image pipeline condition).
     if pipeline_input:
         questions.append(
@@ -219,7 +232,7 @@ def apply_answers(answers: dict) -> ConversionOptions:
     data: dict = {}
     for key in ("output_format", "do_ocr", "do_table_structure", "image_mode",
                 "table_mode", "force_full_page_ocr", "do_cell_matching",
-                "ocr_preprocess"):
+                "ocr_preprocess", "use_vlm"):
         if key in answers and answers[key] is not None:
             data[key] = answers[key]
 

@@ -56,6 +56,13 @@ class Settings:
         self.llm_model = os.environ.get("PDFTO_LLM_MODEL", "claude-opus-4-8")
         self.llm_max_tokens = int(os.environ.get("PDFTO_LLM_MAX_TOKENS", "16000"))
         self.llm_timeout = int(os.environ.get("PDFTO_LLM_TIMEOUT", "120"))
+        # VLM pipeline (opt-in via use_vlm). Local transformers model by name, or
+        # an OpenAI-compatible API endpoint when PDFTO_VLM_API_URL is set.
+        self.vlm_model = os.environ.get("PDFTO_VLM_MODEL", "granite_docling")
+        self.vlm_api_url = os.environ.get("PDFTO_VLM_API_URL") or None
+        self.vlm_api_key = os.environ.get("PDFTO_VLM_API_KEY") or None
+        self.vlm_api_model = os.environ.get("PDFTO_VLM_API_MODEL") or None
+        self.vlm_timeout = int(os.environ.get("PDFTO_VLM_TIMEOUT", "300"))
         # Webhooks (job completion callbacks).
         self.webhook_secret = os.environ.get("PDFTO_WEBHOOK_SECRET") or None
         self.webhook_timeout = int(os.environ.get("PDFTO_WEBHOOK_TIMEOUT", "10"))
@@ -81,6 +88,10 @@ class Settings:
     @property
     def llm_enabled(self) -> bool:
         return bool(self.anthropic_api_key)
+
+    @property
+    def vlm_api_enabled(self) -> bool:
+        return bool(self.vlm_api_url)
 
     @property
     def auth_enabled(self) -> bool:

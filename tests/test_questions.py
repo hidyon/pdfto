@@ -64,6 +64,13 @@ def test_ocr_strength_maps_to_confidence_threshold():
     assert apply_answers({"ocr_confidence_threshold": 0.05}).ocr_confidence_threshold == 0.05
 
 
+def test_use_vlm_question_present_and_mapped():
+    qs = {q.id: q for q in build_questions(_analysis())}
+    assert "use_vlm" in qs and qs["use_vlm"].type == "boolean"
+    assert apply_answers({"use_vlm": True}).use_vlm is True
+    assert apply_answers({}).use_vlm is False
+
+
 def test_ocr_preprocess_question_only_for_image_input():
     img = {q.id for q in build_questions(_analysis(source_extension=".jpg"))}
     pdf = {q.id for q in build_questions(_analysis(source_extension=".pdf"))}
