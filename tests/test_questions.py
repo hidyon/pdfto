@@ -64,6 +64,15 @@ def test_ocr_strength_maps_to_confidence_threshold():
     assert apply_answers({"ocr_confidence_threshold": 0.05}).ocr_confidence_threshold == 0.05
 
 
+def test_new_quality_knobs_surface_in_interactive_flow():
+    """All M10/M11 knobs appear as questions so the dynamic UI can render them."""
+    img = {q.id for q in build_questions(
+        _analysis(source_extension=".jpg", likely_scanned=True,
+                  has_extractable_text=False))}
+    assert {"force_full_page_ocr", "ocr_strength", "ocr_preprocess",
+            "use_vlm"} <= img
+
+
 def test_use_vlm_question_present_and_mapped():
     qs = {q.id: q for q in build_questions(_analysis())}
     assert "use_vlm" in qs and qs["use_vlm"].type == "boolean"

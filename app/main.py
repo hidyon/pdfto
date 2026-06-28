@@ -524,6 +524,9 @@ async def create_batch(
     do_table_structure: bool = Query(default=True),
     table_mode: TableMode = Query(default=TableMode.accurate),
     ocr_languages: list[str] = Query(default=[]),
+    force_full_page_ocr: bool = Query(default=False),
+    ocr_confidence_threshold: Optional[float] = Query(default=None, ge=0.0, le=1.0),
+    use_vlm: bool = Query(default=False),
     callback_url: Optional[str] = Query(default=None),
 ) -> BatchResponse:
     """Submit several PDFs at once; each becomes its own conversion job.
@@ -558,6 +561,9 @@ async def create_batch(
         "do_table_structure": do_table_structure,
         "table_mode": table_mode.value,
         "ocr_languages": ocr_languages,
+        "force_full_page_ocr": force_full_page_ocr,
+        "ocr_confidence_threshold": ocr_confidence_threshold,
+        "use_vlm": use_vlm,
     })
     batch_id = uuid.uuid4().hex
     items: list[BatchItem] = []

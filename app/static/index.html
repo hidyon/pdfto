@@ -66,6 +66,15 @@
           </select>
         </label>
         <label class="toggle"><input type="checkbox" id="batch-ocr" /><span>OCR を行う</span></label>
+        <label>OCR 強度
+          <select id="batch-ocr-strength">
+            <option value="standard">標準</option>
+            <option value="aggressive">強気（低品質スキャン）</option>
+            <option value="max">最大（かなりノイジー）</option>
+          </select>
+        </label>
+        <label class="toggle"><input type="checkbox" id="batch-fullpage-ocr" /><span>全ページ強制 OCR</span></label>
+        <label class="toggle"><input type="checkbox" id="batch-vlm" /><span>高精度 VLM（重い）</span></label>
         <button id="batch-submit" type="button">バッチ変換する</button>
       </div>
       <p id="batch-status" class="status"></p>

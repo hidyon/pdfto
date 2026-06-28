@@ -322,6 +322,12 @@ async function submitBatch() {
   for (const f of batchFiles) form.append("files", f);
   const fmt = $("#batch-format").value;
   const params = new URLSearchParams({ output_format: fmt, do_ocr: $("#batch-ocr").checked });
+  // Quality knobs (parity with the interactive flow): full-page OCR, OCR
+  // strength -> confidence threshold, and the heavier VLM pipeline.
+  if ($("#batch-fullpage-ocr").checked) params.set("force_full_page_ocr", "true");
+  if ($("#batch-vlm").checked) params.set("use_vlm", "true");
+  const conf = { standard: "", aggressive: "0.2", max: "0.1" }[$("#batch-ocr-strength").value];
+  if (conf) params.set("ocr_confidence_threshold", conf);
   try {
     const res = await fetch(`${API}/batches?${params}`,
                             { method: "POST", body: form, headers: authHeaders() });

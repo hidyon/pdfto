@@ -456,6 +456,35 @@ def test_batch_accepts_table_mode(client, text_pdf):
     assert r.status_code == 202, r.text
 
 
+def test_batch_forwards_quality_knobs(client, text_pdf, monkeypatch):
+    """Batch passes VLM / full-page OCR / OCR confidence into the job options."""
+    seen: dict = {}
+
+    def recording_convert(path, options, image_dir=None):
+        seen["options"] = options
+        return ConvertedDocument(
+            content="x", output_format=options.output_format,
+            suggested_extension="md")
+
+    monkeypatch.setattr(main, "convert", recording_convert)
+    files = [("files", ("a.pdf", text_pdf, "application/pdf"))]
+    r = client.post("/api/v1/batches?use_vlm=true&force_full_page_ocr=true"
+                    "&ocr_confidence_threshold=0.1", files=files)
+    assert r.status_code == 202, r.text
+    _wait_for_job(client, r.json()["items"][0]["job_id"])
+
+    opts = seen["options"]
+    assert opts.use_vlm is True
+    assert opts.force_full_page_ocr is True
+    assert opts.ocr_confidence_threshold == 0.1
+
+
+def test_batch_rejects_bad_confidence(client, text_pdf):
+    files = [("files", ("a.pdf", text_pdf, "application/pdf"))]
+    r = client.post("/api/v1/batches?ocr_confidence_threshold=2", files=files)
+    assert r.status_code == 422
+
+
 def test_unknown_document_404(client):
     r = client.post("/api/v1/documents/does-not-exist/convert", json={})
     assert r.status_code == 404

@@ -192,6 +192,17 @@ curl "http://localhost:8000/api/v1/batches/<BATCH_ID>"
 各成果物は通常どおり `GET /api/v1/documents/{document_id}/download?format=...` で
 取得します。1 バッチのファイル数は `PDFTO_MAX_BATCH_FILES`（既定 20）まで。
 
+バッチでも品質ノブを共通指定できます（全ファイルに適用）。Web UI のバッチ欄にも
+「OCR 強度／全ページ強制 OCR／高精度 VLM」のコントロールがあります。
+
+```bash
+# スキャン PDF 群を VLM で一括変換（重い）。OCR 信頼度を下げて取りこぼしも低減
+curl -X POST "http://localhost:8000/api/v1/batches?do_ocr=true&use_vlm=true" \
+     -F files=@scan1.pdf -F files=@scan2.pdf
+curl -X POST "http://localhost:8000/api/v1/batches?do_ocr=true&ocr_confidence_threshold=0.1&force_full_page_ocr=true" \
+     -F files=@receipt1.jpg -F files=@receipt2.jpg
+```
+
 ### OCR と言語
 
 スキャン文書（画像のみの PDF）は `do_ocr=true` で文字を抽出できます。対話フローでは
